@@ -13,22 +13,66 @@ using System.IO;
 /// </remarks>
 public class ScriptFinder : EditorWindow
 {
-	private List<MonoScript> unusedMonoScripts = new List<MonoScript> ();
+	#region Window Setup
 	
 	private static ScriptFinder window;
 
 	[MenuItem ("Custom/Find Unused Scripts")]
 	static void Init ()
 	{
-		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), true, "Unused Scripts");
+		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), true, "Script Finder");
+	}
+	
+	#endregion
+	
+	
+	private bool findInScenes = true;
+	private bool findInPrefabs = true;
+	
+	void OnGUI ()
+	{
+		GUILayout.Space (10);
 		
-		window.RefreshBehaviours ();
+		GUI.Label ("Look for scripts in:");
+		findInScenes = EditorGUILayout.Toggle ("Scenes", findInScenes);
+		findInPrefabs = EditorGUILayout.Toggle ("Prefabs", findInPrefabs);
+		
+		// FIXME need to ask the user to save current scene before progressing
+		
+		if (GUILayout.Button ("Find Selected Script")) {
+			
+		}
+		if (GUILayout.Button ("Find All Unused Scripts")) {
+			if (findInScenes)
+				FindMonoBehavioursInScenes ();
+			if (findInPrefabs)
+				FindMonoBehavioursInPrefabs ();
+		}
+		
+		
+//		foreach (var script in unusedMonoScripts) {
+//			GUIStyle style = new GUIStyle ("button");
+//			style.alignment = TextAnchor.MiddleLeft;
+//			GUILayout.BeginHorizontal ();
+//			{
+//				if (GUILayout.Button (script.name, style)) {
+//					EditorGUIUtility.PingObject (script);
+//				}
+//				if (GUILayout.Button ("Open", GUILayout.Width (50))) {
+//					EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (script));
+//				}
+//			}
+//			GUILayout.EndHorizontal ();
+//		}
 	}
 	
 	
-	void RefreshBehaviours ()
+	
+	private List<MonoScript> unusedMonoScripts = new List<MonoScript> ();
+	
+	void FindMonoBehavioursInScenes ()
 	{
-		var unusedBehaviours = FindUnusedMonoBehaviours ();
+		HashSet<System.Type> unusedBehaviours = FindUnusedMonoBehaviours ();
 		foreach (var script in FindAllScriptsInProject ()) {
 			if (unusedBehaviours.Contains (script.GetClass ())) {
 				unusedMonoScripts.Add (script);
@@ -37,24 +81,11 @@ public class ScriptFinder : EditorWindow
 	}
 	
 	
-	void OnGUI ()
+	void FindMonoBehavioursInPrefabs ()
 	{
-		GUILayout.Space (10);
-		
-		foreach (var script in unusedMonoScripts) {
-			GUIStyle style = new GUIStyle ("button");
-			style.alignment = TextAnchor.MiddleLeft;
-			GUILayout.BeginHorizontal ();
-			{
-				if (GUILayout.Button (script.name, style)) {
-					EditorGUIUtility.PingObject (script);
-				}
-				if (GUILayout.Button ("Open", GUILayout.Width (50))) {
-					EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (script));
-				}
-			}
-			GUILayout.EndHorizontal ();
-		}
+		// Get references to prefabs on disk
+		// prefab.GetComponent only works for top-level GameObject and its immediate children. Deeper objects are ignored.
+		// Must use prefab.transform.Find("GameObject/ChildOne/ChildTwo") to get deep children
 	}
 	
 	
