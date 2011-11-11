@@ -13,10 +13,6 @@ using System.IO;
 /// </remarks>
 public sealed class ScriptFinder : EditorWindow
 {
-	
-	// Find MonoBehaviours which are not attached, but are still being called by other code.
-	// (they don't need to be monobehaviours in this case)
-	
 	#region Window Setup
 
 	private static ScriptFinder window;
@@ -30,6 +26,11 @@ public sealed class ScriptFinder : EditorWindow
 	#endregion
 
 	
+	private enum AssetType {
+		Prefab,
+		Scene,
+		Script
+	}
 	
 	private class ScriptReference {
 		public MonoScript script;
@@ -45,6 +46,18 @@ public sealed class ScriptFinder : EditorWindow
 		/// Game objects in the current scene containing the script.
 		/// </summary>
 		public UnityEngine.Object[] gameObjects;
+		
+		/// <summary>
+		/// Is the script used by a scene or prefab?
+		/// </summary>
+		public bool Used {
+			get {
+				if (prefabs.Length == 0 && scenes.Length == 0) {
+					return false;
+				}
+				return true;
+			}
+		}
 	}
 	
 	
@@ -52,10 +65,10 @@ public sealed class ScriptFinder : EditorWindow
 	/// <summary>
 	/// Get MonoScripts which are used in the given scene or prefab.
 	/// </summary>
-	private List<MonoScript> GetScriptDependenciesForAsset (UnityEngine.Object obj)
+	private List<MonoScript> GetScriptsInScenesOrPrefabs (UnityEngine.Object[] scenesOrPrefabs)
 	{
 		List<MonoScript> scripts = new List<MonoScript> ();
-		foreach (var s in EditorUtility.CollectDependencies (Selection.objects)) {
+		foreach (var s in EditorUtility.CollectDependencies (scenesOrPrefabs)) {
 			if (s as MonoScript) {
 				scripts.Add ((MonoScript)s);
 			}
@@ -133,24 +146,17 @@ public sealed class ScriptFinder : EditorWindow
 	
 	
 	void OnGUI ()
-	{	
-		if (GUILayout.Button ("Show all MonoBehaviour Scripts")) {
+	{
+		// Show scenes and prefabs that use each script, and other scripts which reference this script
+		if (GUILayout.Button ("Show All Scripts")) {
 			foreach (MonoScript script in FindAllMonoBehaviourScriptsInProject ()) {
 				Debug.Log (script.GetClass ());
 			}
-		}
-		
-		if (GUILayout.Button ("Show script dependencies for selected")) {
-			foreach (MonoScript script in GetScriptDependenciesForAsset (Selection.activeObject)) {
-				Debug.Log (script.GetClass ());
-			}
-		}
-		
-		
-		if (GUILayout.Button ("Find Selected Script in Assets")) {
 			
+			// TODO option to show only unused scripts in the list
 		}
-
+		
+		
 		
 		
 //		foreach (var script in unusedMonoScripts) {
@@ -168,10 +174,6 @@ public sealed class ScriptFinder : EditorWindow
 //			GUILayout.EndHorizontal ();
 //		}
 	}
-	
-	
-	
-	private List<MonoScript> unusedMonoScripts = new List<MonoScript> ();
 	
 	
 //	private static HashSet<System.Type> FindUnusedMonoBehaviours ()
