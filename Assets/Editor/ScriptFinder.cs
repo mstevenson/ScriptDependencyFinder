@@ -11,8 +11,26 @@ using System.IO;
 /// <remarks>
 /// This tool does not take into account prefabs or components that are instantiated at runtime. Use with caution.
 /// </remarks>
-public class ScriptFinder : EditorWindow
+public sealed class ScriptFinder : EditorWindow
 {
+	
+	// Find MonoBehaviours which are not attached, but are still being called by other code.
+	// (they don't need to be monobehaviours in this case)
+	
+	
+	private enum ScriptContainerType {
+		Scene,
+		Prefab,
+		None
+	}
+	
+	private class ScriptReference {
+		public MonoScript script;
+		public UnityEngine.Object attachedTo;
+		public ScriptContainerType containerType;
+	}
+	
+	
 	#region Window Setup
 	
 	private static ScriptFinder window;
@@ -26,14 +44,92 @@ public class ScriptFinder : EditorWindow
 	#endregion
 	
 	
+	
+	
+	
+	private List<MonoScript> GetScriptDependenciesForAsset (UnityEngine.Object obj)
+	{
+		return GetScriptDependenciesForAsset (AssetDatabase.GetAssetPath (obj));
+	}
+	
+	
+	/// <summary>
+	/// Get MonoScripts which are used by the given scene or prefab.
+	/// </summary>
+	private List<MonoScript> GetScriptDependenciesForAsset (string path)
+	{
+		List<MonoScript> scripts = new List<MonoScript> ();
+		// Note: AssetDatabase.GetDependencies returns path names in all lowercase
+		string[] dependencies = AssetDatabase.GetDependencies (new string[] { path });
+		foreach (string d in dependencies) {
+			if (d == path.ToLower ())
+				continue;
+			MonoScript s = AssetDatabase.LoadAssetAtPath (d, typeof(MonoScript)) as MonoScript;
+			if (s == null)
+				continue;
+			scripts.Add (s);
+		}
+		return scripts;
+	}
+	
+	
+	private List<UnityEngine.Object> GetAllScenes ()
+	{
+		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".unity");
+	}
+	
+	private List<UnityEngine.Object> GetAllPrefabs ()
+	{
+		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".prefab");
+	}
+	
+	
+	/// <summary>
+	/// Get all asset files in the project which match the given extension (including the dot)
+	/// </summary>
+	private List<T> GetAllAssetsOfTypeWithExtension<T> (string extension)
+		where T : UnityEngine.Object
+	{
+		List<T> objs = new List<T> ();
+		foreach (string path in AssetDatabase.GetAllAssetPaths ()) {
+			if (Path.GetExtension (path) != extension)
+				continue;
+			T asset = AssetDatabase.LoadAssetAtPath (path, typeof(T)) as T;
+			if (asset != null)
+				objs.Add (asset);
+		}
+		return objs;
+	}
+	
+	
+	
+	
+	
 	private bool findInScenes = true;
 	private bool findInPrefabs = true;
-	
 	void OnGUI ()
 	{
+		if (GUILayout.Button ("All asset paths")) {
+			foreach (var s in AssetDatabase.GetAllAssetPaths ()) {
+				Debug.Log (s);
+			}
+		}
+		
+		
+		if (GUILayout.Button ("Find scene dependencies")) {
+			foreach (MonoScript script in GetScriptDependenciesForAsset (Selection.activeObject)) {
+				Debug.Log (script.GetClass ());
+			}
+			
+//			foreach (string s in AssetDatabase.GetDependencies (new string[] { p })) {
+//				Debug.Log (s);
+//			}
+		}
+		
+		
 		GUILayout.Space (10);
 		
-		GUI.Label ("Look for scripts in:");
+		GUILayout.Label ("Look for scripts in:");
 		findInScenes = EditorGUILayout.Toggle ("Scenes", findInScenes);
 		findInPrefabs = EditorGUILayout.Toggle ("Prefabs", findInPrefabs);
 		
@@ -45,8 +141,8 @@ public class ScriptFinder : EditorWindow
 		if (GUILayout.Button ("Find All Unused Scripts")) {
 			if (findInScenes)
 				FindMonoBehavioursInScenes ();
-			if (findInPrefabs)
-				FindMonoBehavioursInPrefabs ();
+//			if (findInPrefabs)
+//				FindMonoBehavioursInPrefabs ();
 		}
 		
 		
@@ -78,14 +174,6 @@ public class ScriptFinder : EditorWindow
 				unusedMonoScripts.Add (script);
 			}
 		}
-	}
-	
-	
-	void FindMonoBehavioursInPrefabs ()
-	{
-		// Get references to prefabs on disk
-		// prefab.GetComponent only works for top-level GameObject and its immediate children. Deeper objects are ignored.
-		// Must use prefab.transform.Find("GameObject/ChildOne/ChildTwo") to get deep children
 	}
 	
 	
