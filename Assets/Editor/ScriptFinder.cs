@@ -11,16 +11,16 @@ using System.IO;
 /// <remarks>
 /// This tool does not take into account prefabs or components that are instantiated at runtime. Use with caution.
 /// </remarks>
-public class MonoBehaviourFinder : EditorWindow
+public class ScriptFinder : EditorWindow
 {
 	private List<MonoScript> unusedMonoScripts = new List<MonoScript> ();
 	
-	private static MonoBehaviourFinder window;
+	private static ScriptFinder window;
 
 	[MenuItem ("Custom/Find Unused Scripts")]
 	static void Init ()
 	{
-		MonoBehaviourFinder window = (MonoBehaviourFinder)EditorWindow.GetWindow (typeof(MonoBehaviourFinder), true, "Unused Scripts");
+		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), true, "Unused Scripts");
 		
 		window.RefreshBehaviours ();
 	}
