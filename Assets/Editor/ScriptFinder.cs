@@ -17,68 +17,67 @@ public sealed class ScriptFinder : EditorWindow
 	// Find MonoBehaviours which are not attached, but are still being called by other code.
 	// (they don't need to be monobehaviours in this case)
 	
-	
-	private enum ScriptContainerType {
-		Scene,
-		Prefab,
-		None
-	}
-	
-	private class ScriptReference {
-		public MonoScript script;
-		public UnityEngine.Object attachedTo;
-		public ScriptContainerType containerType;
-	}
-	
-	
 	#region Window Setup
-	
+
 	private static ScriptFinder window;
 
-	[MenuItem ("Custom/Find Unused Scripts")]
+	[MenuItem("Custom/Find Unused Scripts")]
 	static void Init ()
 	{
 		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), true, "Script Finder");
 	}
-	
+
 	#endregion
+
 	
 	
-	
-	
-	
-	private List<MonoScript> GetScriptDependenciesForAsset (UnityEngine.Object obj)
-	{
-		return GetScriptDependenciesForAsset (AssetDatabase.GetAssetPath (obj));
+	private class ScriptReference {
+		public MonoScript script;
+		/// <summary>
+		/// Prefabs containing the script.
+		/// </summary>
+		public UnityEngine.Object[] prefabs;
+		/// <summary>
+		/// Scene files containing the script.
+		/// </summary>
+		public UnityEngine.Object[] scenes;
+		/// <summary>
+		/// Game objects in the current scene containing the script.
+		/// </summary>
+		public UnityEngine.Object[] gameObjects;
 	}
 	
 	
+	
 	/// <summary>
-	/// Get MonoScripts which are used by the given scene or prefab.
+	/// Get MonoScripts which are used in the given scene or prefab.
 	/// </summary>
-	private List<MonoScript> GetScriptDependenciesForAsset (string path)
+	private List<MonoScript> GetScriptDependenciesForAsset (UnityEngine.Object obj)
 	{
 		List<MonoScript> scripts = new List<MonoScript> ();
-		// Note: AssetDatabase.GetDependencies returns path names in all lowercase
-		string[] dependencies = AssetDatabase.GetDependencies (new string[] { path });
-		foreach (string d in dependencies) {
-			if (d == path.ToLower ())
-				continue;
-			MonoScript s = AssetDatabase.LoadAssetAtPath (d, typeof(MonoScript)) as MonoScript;
-			if (s == null)
-				continue;
-			scripts.Add (s);
+		foreach (var s in EditorUtility.CollectDependencies (Selection.objects)) {
+			if (s as MonoScript) {
+				scripts.Add ((MonoScript)s);
+			}
 		}
 		return scripts;
 	}
 	
 	
-	private List<UnityEngine.Object> GetAllScenes ()
+	
+	/// <summary>
+	/// Get all scene files contained in the project.
+	/// </summary>
+	private List<UnityEngine.Object> GetAllSceneAssets ()
 	{
 		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".unity");
 	}
 	
-	private List<UnityEngine.Object> GetAllPrefabs ()
+	
+	/// <summary>
+	/// Get all prefabs contained in the project.
+	/// </summary>
+	private List<UnityEngine.Object> GetAllPrefabAssets ()
 	{
 		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".prefab");
 	}
@@ -102,48 +101,56 @@ public sealed class ScriptFinder : EditorWindow
 	}
 	
 	
-	
-	
-	
-	private bool findInScenes = true;
-	private bool findInPrefabs = true;
-	void OnGUI ()
+	/// <summary>
+	/// Find all MonoBehaviour files contained in the project.
+	/// </summary>
+	private static List<MonoScript> FindAllMonoBehaviourScriptsInProject ()
 	{
-		if (GUILayout.Button ("All asset paths")) {
-			foreach (var s in AssetDatabase.GetAllAssetPaths ()) {
-				Debug.Log (s);
+		List<MonoScript> scripts = new List<MonoScript> ();
+		foreach (var obj in FindObjectsOfTypeIncludingAssets (typeof(MonoScript))) {
+			if (obj as MonoScript) {
+				MonoScript script = (MonoScript)obj;
+				if (script.GetClass ().IsSubclassOf (typeof(MonoBehaviour))) {
+					scripts.Add (script);
+				}
+			}
+		}
+		return scripts;
+	}
+	
+	
+	
+	
+	
+	
+	// When displaying scenes that use a particular script, click to highlight the scene file.
+	// Double click to open and highlight the objects that use the script. Also expands
+	// The view 
+	
+	// Auto refresh when deleting or changing files. Is there a callback for this? May have to use my Watcher
+	
+	
+	
+	
+	void OnGUI ()
+	{	
+		if (GUILayout.Button ("Show all MonoBehaviour Scripts")) {
+			foreach (MonoScript script in FindAllMonoBehaviourScriptsInProject ()) {
+				Debug.Log (script.GetClass ());
 			}
 		}
 		
-		
-		if (GUILayout.Button ("Find scene dependencies")) {
+		if (GUILayout.Button ("Show script dependencies for selected")) {
 			foreach (MonoScript script in GetScriptDependenciesForAsset (Selection.activeObject)) {
 				Debug.Log (script.GetClass ());
 			}
-			
-//			foreach (string s in AssetDatabase.GetDependencies (new string[] { p })) {
-//				Debug.Log (s);
-//			}
 		}
 		
 		
-		GUILayout.Space (10);
-		
-		GUILayout.Label ("Look for scripts in:");
-		findInScenes = EditorGUILayout.Toggle ("Scenes", findInScenes);
-		findInPrefabs = EditorGUILayout.Toggle ("Prefabs", findInPrefabs);
-		
-		// FIXME need to ask the user to save current scene before progressing
-		
-		if (GUILayout.Button ("Find Selected Script")) {
+		if (GUILayout.Button ("Find Selected Script in Assets")) {
 			
 		}
-		if (GUILayout.Button ("Find All Unused Scripts")) {
-			if (findInScenes)
-				FindMonoBehavioursInScenes ();
-//			if (findInPrefabs)
-//				FindMonoBehavioursInPrefabs ();
-		}
+
 		
 		
 //		foreach (var script in unusedMonoScripts) {
@@ -166,76 +173,30 @@ public sealed class ScriptFinder : EditorWindow
 	
 	private List<MonoScript> unusedMonoScripts = new List<MonoScript> ();
 	
-	void FindMonoBehavioursInScenes ()
-	{
-		HashSet<System.Type> unusedBehaviours = FindUnusedMonoBehaviours ();
-		foreach (var script in FindAllScriptsInProject ()) {
-			if (unusedBehaviours.Contains (script.GetClass ())) {
-				unusedMonoScripts.Add (script);
-			}
-		}
-	}
+	
+//	private static HashSet<System.Type> FindUnusedMonoBehaviours ()
+//	{
+//		HashSet<System.Type> existingBehaviours = FindMonoBehaviours ();
+//		HashSet<System.Type> usedBehaviours = new HashSet<System.Type> ();
+//		
+//		// Iterate through all scenes that exist in the project
+//		foreach (string s in FindAllScenes ()) {
+//			EditorApplication.OpenScene (s);
+//			// Find all MonoBehaviours in each scene
+//			foreach (var type in existingBehaviours) {
+//				// Build a set of MonoBehaviours that are in use
+//				if (CurrentSceneContainsMonoBehaviour (type)) {
+//					if (!usedBehaviours.Contains (type)) {
+//						usedBehaviours.Add (type);
+//					}
+//				}
+//			}
+//		}
+//		
+//		// Remove all used MonoBehaviours from the set of all existing MonoBehaviours
+//		existingBehaviours.ExceptWith (usedBehaviours);
+//		return existingBehaviours;
+//	}
 	
 	
-	private static List<MonoScript> FindAllScriptsInProject ()
-	{
-		List<MonoScript> scripts = new List<MonoScript> ();
-		foreach (var obj in FindObjectsOfTypeIncludingAssets (typeof(MonoScript))) {
-			if (obj as MonoScript)
-				scripts.Add ((MonoScript)obj);
-		}
-		return scripts;
-	}
-	
-	
-	private static HashSet<System.Type> FindUnusedMonoBehaviours ()
-	{
-		HashSet<System.Type> existingBehaviours = FindMonoBehaviours ();
-		HashSet<System.Type> usedBehaviours = new HashSet<System.Type> ();
-		
-		// Iterate through all scenes that exist in the project
-		foreach (string s in FindAllScenes ()) {
-			EditorApplication.OpenScene (s);
-			// Find all MonoBehaviours in each scene
-			foreach (var type in existingBehaviours) {
-				// Build a set of MonoBehaviours that are in use
-				if (CurrentSceneContainsMonoBehaviour (type)) {
-					if (!usedBehaviours.Contains (type)) {
-						usedBehaviours.Add (type);
-					}
-				}
-			}
-		}
-		
-		// Remove all used MonoBehaviours from the set of all existing MonoBehaviours
-		existingBehaviours.ExceptWith (usedBehaviours);
-		return existingBehaviours;
-	}
-	
-	
-	private static string[] FindAllScenes ()
-	{
-		return Directory.GetFiles (Application.dataPath, "*.unity", SearchOption.AllDirectories);
-	}
-	
-	
-	private static bool CurrentSceneContainsMonoBehaviour (System.Type type)
-	{
-		Object[] objs = FindSceneObjectsOfType (type);
-		return objs.Length > 0;
-	}
-	
-	
-	private static HashSet<System.Type> FindMonoBehaviours ()
-	{
-		HashSet<System.Type> subclasses = new HashSet<System.Type> ();
-		// Assembly assembly = Assembly.GetExecutingAssembly ();
-		Assembly assembly = Assembly.GetAssembly (typeof(AssemblyAnchor));
-		foreach (var t in assembly.GetTypes ()) {
-			if (t.IsSubclassOf (typeof(MonoBehaviour))) {
-				subclasses.Add (t);
-			}
-		}
-		return subclasses;
-	}
 }
