@@ -158,6 +158,8 @@ public sealed class ScriptFinder : EditorWindow
 		
 		
 		
+		ConsoleGUI ();
+		
 		
 //		foreach (var script in unusedMonoScripts) {
 //			GUIStyle style = new GUIStyle ("button");
@@ -201,4 +203,38 @@ public sealed class ScriptFinder : EditorWindow
 //	}
 	
 	
+	
+	
+	
+	
+	void ConsoleGUI ()
+	{
+		// Texture2D icon = EditorGUIUtility.IconContent ("TextAsset Icon").image as Texture2D;
+		// EditorGUIUtility.Load("Builtin Skins/Icons/" + name + ".png") as Texture2D
+		// EditorGUIUtility.Load("Builtin Skins/Icons/d_" + name + ".png") as Texture2D
+		GUILayout.Box (LoadIcon("TextAsset Icon"));
+		GUILayout.Box (LoadIcon("js Script Icon"));
+		GUILayout.Box (LoadIcon("cs Script Icon"));
+		GUILayout.Box (LoadIcon ("boo Script Icon"));
+		//Builtin Skins/Inspector Images/
+	}
+	
+	
+	Texture2D LoadIcon (string name)
+	{
+		//Based on EditorGUIUtility.LoadIconForSkin
+		if (!UsingProSkin)
+			return EditorGUIUtility.Load ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
+		Texture2D tex = EditorGUIUtility.Load ("Builtin Skins/Icons/_d" + name + ".png") as Texture2D;
+		if (tex == null)
+			tex = EditorGUIUtility.Load ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
+		return tex;
+	}
+	
+	
+	bool UsingProSkin {
+		get {
+			return GUI.skin.name == "SceneGUISkin";
+		}
+	}
 }
