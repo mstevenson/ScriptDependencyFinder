@@ -32,6 +32,13 @@ public sealed class ScriptFinder : EditorWindow
 		Script
 	}
 	
+	private enum ScriptType {
+		CS,
+		JS,
+		Boo
+	}
+	
+	
 	private class ScriptReference {
 		public MonoScript script;
 		/// <summary>
@@ -46,18 +53,34 @@ public sealed class ScriptFinder : EditorWindow
 		/// Game objects in the current scene containing the script.
 		/// </summary>
 		public UnityEngine.Object[] gameObjects;
+		/// <summary>
+		/// Other scripts that reference this script.
+		/// </summary>
+		public UnityEngine.Object[] otherScripts;
 		
 		/// <summary>
-		/// Is the script used by a scene or prefab?
+		/// Is the script attached to anything within any scene or prefab?
 		/// </summary>
-		public bool Used {
-			get {
-				if (prefabs.Length == 0 && scenes.Length == 0) {
-					return false;
-				}
-				return true;
-			}
+		public bool IsAttached {
+			get { return prefabs.Length != 0 || scenes.Length != 0; }
 		}
+		
+		/// <summary>
+		/// Is the script referenced by another script?
+		/// </summary>
+		public bool IsReferenced {
+			get { return otherScripts.Length != 0; }
+		}
+	}
+	
+	
+	/// <summary>
+	/// A Scene, Prefab, or MonoScript which relies a particular MonoBehaviour.
+	/// </summary>
+	private class ScriptDepender {
+		public UnityEngine.Object obj;
+		public string path;
+		AssetType assetType;
 	}
 	
 	
@@ -143,6 +166,7 @@ public sealed class ScriptFinder : EditorWindow
 	// Auto refresh when deleting or changing files. Is there a callback for this? May have to use my Watcher
 	
 	
+	#region GUI
 	
 	
 	void OnGUI ()
@@ -212,22 +236,37 @@ public sealed class ScriptFinder : EditorWindow
 		// Texture2D icon = EditorGUIUtility.IconContent ("TextAsset Icon").image as Texture2D;
 		// EditorGUIUtility.Load("Builtin Skins/Icons/" + name + ".png") as Texture2D
 		// EditorGUIUtility.Load("Builtin Skins/Icons/d_" + name + ".png") as Texture2D
-		GUILayout.Box (LoadIcon("TextAsset Icon"));
-		GUILayout.Box (LoadIcon("js Script Icon"));
-		GUILayout.Box (LoadIcon("cs Script Icon"));
-		GUILayout.Box (LoadIcon ("boo Script Icon"));
+		GUILayout.Box (LoadIcon ("TextAsset Icon"));
+		GUILayout.Box (LoadIcon ("Prefab Icon"));
+		GUILayout.Box (LoadIcon ("Scene Icon"));
 		//Builtin Skins/Inspector Images/
 	}
 	
 	
 	Texture2D LoadIcon (string name)
 	{
+		/*
+		 * console.infoicon.png
+		 * console.warnicon.png
+		 * console.erroricon.png
+		 * console.infoicon.sml.png
+		 * console.warnicon.sml.png
+		 * console.erroricon.sml.png
+		 * 
+		 * TextAsset Icon.png
+		 * js Script Icon.png
+		 * cs Script Icon.png
+		 * boo Script Icon.png
+		 * Prefab Icon.png
+		 * Scene Icon.png
+		 */
+		
 		//Based on EditorGUIUtility.LoadIconForSkin
 		if (!UsingProSkin)
-			return EditorGUIUtility.Load ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
-		Texture2D tex = EditorGUIUtility.Load ("Builtin Skins/Icons/_d" + name + ".png") as Texture2D;
+			return EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
+		Texture2D tex = EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/_d" + name + ".png") as Texture2D;
 		if (tex == null)
-			tex = EditorGUIUtility.Load ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
+			tex = EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
 		return tex;
 	}
 	
@@ -237,4 +276,20 @@ public sealed class ScriptFinder : EditorWindow
 			return GUI.skin.name == "SceneGUISkin";
 		}
 	}
+	
+	
+	Texture2D GetIconForScriptType (ScriptType scriptType)
+	{
+		switch (scriptType) {
+		case ScriptType.CS:
+			return GUILayout.Box (LoadIcon ("cs Script Icon"));
+		case ScriptType.JS:
+			return GUILayout.Box (LoadIcon ("js Script Icon"));
+		case ScriptType.Boo:
+			return GUILayout.Box (LoadIcon ("boo Script Icon"));
+		}
+	}
+	
+	
+	#endregion
 }
