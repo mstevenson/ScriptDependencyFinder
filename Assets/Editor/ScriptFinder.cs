@@ -5,6 +5,52 @@ using System.Collections.Generic;
 using System.IO;
 
 
+public enum ScriptType
+{
+	CS,
+	JS,
+	Boo
+}
+
+
+public class ScriptReference
+{
+	public MonoScript script;
+	/// <summary>
+	/// Prefabs containing the script.
+	/// </summary>
+	public UnityEngine.Object[] prefabs;
+	/// <summary>
+	/// Scene files containing the script.
+	/// </summary>
+	public UnityEngine.Object[] scenes;
+	/// <summary>
+	/// Game objects in the current scene containing the script.
+	/// </summary>
+	public UnityEngine.Object[] gameObjects;
+	/// <summary>
+	/// Other scripts that reference this script.
+	/// </summary>
+	public UnityEngine.Object[] otherScripts;
+	
+	public ScriptType scriptType;
+
+	/// <summary>
+	/// Is the script attached to anything within any scene or prefab?
+	/// </summary>
+	public bool IsAttached {
+		get { return prefabs.Length != 0 || scenes.Length != 0; }
+	}
+
+	/// <summary>
+	/// Is the script referenced by another script?
+	/// </summary>
+	public bool IsReferenced {
+		get { return otherScripts.Length != 0; }
+	}
+}
+
+
 /// <summary>
 /// Finds MonoBehaviour that are not attached to any objects in any scene.
 /// </summary>
@@ -26,51 +72,10 @@ public sealed class ScriptFinder : EditorWindow
 	#endregion
 
 	
-	private enum AssetType {
+	public enum AssetType {
 		Prefab,
 		Scene,
 		Script
-	}
-	
-	private enum ScriptType {
-		CS,
-		JS,
-		Boo
-	}
-	
-	
-	private class ScriptReference {
-		public MonoScript script;
-		/// <summary>
-		/// Prefabs containing the script.
-		/// </summary>
-		public UnityEngine.Object[] prefabs;
-		/// <summary>
-		/// Scene files containing the script.
-		/// </summary>
-		public UnityEngine.Object[] scenes;
-		/// <summary>
-		/// Game objects in the current scene containing the script.
-		/// </summary>
-		public UnityEngine.Object[] gameObjects;
-		/// <summary>
-		/// Other scripts that reference this script.
-		/// </summary>
-		public UnityEngine.Object[] otherScripts;
-		
-		/// <summary>
-		/// Is the script attached to anything within any scene or prefab?
-		/// </summary>
-		public bool IsAttached {
-			get { return prefabs.Length != 0 || scenes.Length != 0; }
-		}
-		
-		/// <summary>
-		/// Is the script referenced by another script?
-		/// </summary>
-		public bool IsReferenced {
-			get { return otherScripts.Length != 0; }
-		}
 	}
 	
 	
@@ -168,9 +173,11 @@ public sealed class ScriptFinder : EditorWindow
 	
 	#region GUI
 	
+	private ScriptListView list = new ScriptListView ();
 	
 	void OnGUI ()
 	{
+		
 		// Show scenes and prefabs that use each script, and other scripts which reference this script
 		if (GUILayout.Button ("Show All Scripts")) {
 			foreach (MonoScript script in FindAllMonoBehaviourScriptsInProject ()) {
@@ -180,116 +187,7 @@ public sealed class ScriptFinder : EditorWindow
 			// TODO option to show only unused scripts in the list
 		}
 		
-		
-		
-		ConsoleGUI ();
-		
-		
-//		foreach (var script in unusedMonoScripts) {
-//			GUIStyle style = new GUIStyle ("button");
-//			style.alignment = TextAnchor.MiddleLeft;
-//			GUILayout.BeginHorizontal ();
-//			{
-//				if (GUILayout.Button (script.name, style)) {
-//					EditorGUIUtility.PingObject (script);
-//				}
-//				if (GUILayout.Button ("Open", GUILayout.Width (50))) {
-//					EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (script));
-//				}
-//			}
-//			GUILayout.EndHorizontal ();
-//		}
 	}
-	
-	
-//	private static HashSet<System.Type> FindUnusedMonoBehaviours ()
-//	{
-//		HashSet<System.Type> existingBehaviours = FindMonoBehaviours ();
-//		HashSet<System.Type> usedBehaviours = new HashSet<System.Type> ();
-//		
-//		// Iterate through all scenes that exist in the project
-//		foreach (string s in FindAllScenes ()) {
-//			EditorApplication.OpenScene (s);
-//			// Find all MonoBehaviours in each scene
-//			foreach (var type in existingBehaviours) {
-//				// Build a set of MonoBehaviours that are in use
-//				if (CurrentSceneContainsMonoBehaviour (type)) {
-//					if (!usedBehaviours.Contains (type)) {
-//						usedBehaviours.Add (type);
-//					}
-//				}
-//			}
-//		}
-//		
-//		// Remove all used MonoBehaviours from the set of all existing MonoBehaviours
-//		existingBehaviours.ExceptWith (usedBehaviours);
-//		return existingBehaviours;
-//	}
-	
-	
-	
-	
-	
-	
-	void ConsoleGUI ()
-	{
-		// Texture2D icon = EditorGUIUtility.IconContent ("TextAsset Icon").image as Texture2D;
-		// EditorGUIUtility.Load("Builtin Skins/Icons/" + name + ".png") as Texture2D
-		// EditorGUIUtility.Load("Builtin Skins/Icons/d_" + name + ".png") as Texture2D
-		GUILayout.Box (LoadIcon ("TextAsset Icon"));
-		GUILayout.Box (LoadIcon ("Prefab Icon"));
-		GUILayout.Box (LoadIcon ("Scene Icon"));
-		//Builtin Skins/Inspector Images/
-	}
-	
-	
-	Texture2D LoadIcon (string name)
-	{
-		/*
-		 * console.infoicon.png
-		 * console.warnicon.png
-		 * console.erroricon.png
-		 * console.infoicon.sml.png
-		 * console.warnicon.sml.png
-		 * console.erroricon.sml.png
-		 * 
-		 * TextAsset Icon.png
-		 * js Script Icon.png
-		 * cs Script Icon.png
-		 * boo Script Icon.png
-		 * Prefab Icon.png
-		 * Scene Icon.png
-		 */
-		
-		//Based on EditorGUIUtility.LoadIconForSkin
-		if (!UsingProSkin)
-			return EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
-		Texture2D tex = EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/_d" + name + ".png") as Texture2D;
-		if (tex == null)
-			tex = EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
-		return tex;
-	}
-	
-	
-	bool UsingProSkin {
-		get {
-			return GUI.skin.name == "SceneGUISkin";
-		}
-	}
-	
-	
-	Texture2D GetIconForScriptType (ScriptType scriptType)
-	{
-		switch (scriptType) {
-		case ScriptType.CS:
-			return GUILayout.Box (LoadIcon ("cs Script Icon"));
-		case ScriptType.JS:
-			return GUILayout.Box (LoadIcon ("js Script Icon"));
-		case ScriptType.Boo:
-			return GUILayout.Box (LoadIcon ("boo Script Icon"));
-		}
-	}
-	
 	
 	#endregion
 }
