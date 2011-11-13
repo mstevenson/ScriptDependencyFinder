@@ -223,11 +223,11 @@ public sealed class ScriptFinder : EditorWindow
 		GUILayout.BeginHorizontal ("Toolbar");
 		{
 			// Clear
-			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (45)))
+			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (35)))
 				Clear ();
-			// Refresh
-			if (GUILayout.Button ("Refresh", EditorStyles.toolbarButton, GUILayout.Width (45)))
-				Refresh ();
+			// Show All
+			if (GUILayout.Button ("Show All", EditorStyles.toolbarButton, GUILayout.Width (50)))
+				ShowAll ();
 			GUILayout.Space (6);
 			// Only unused
 			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
@@ -266,17 +266,17 @@ public sealed class ScriptFinder : EditorWindow
 				GUILayout.BeginVertical (rowStyle);
 				{
 					// Master script
-					ListButton (item.scriptRef.script, new GUIContent (item.scriptRef.script.name, item.scriptRef.Icon), "label");
+					ListButton (item.scriptRef.script, item.scriptRef.scriptType, new GUIContent (item.scriptRef.script.name, item.scriptRef.Icon), "label");
 					// Scenes
 					if (item.scriptRef.sceneDependents.Count > 0) {
 						foreach (Dependent scene in item.scriptRef.sceneDependents) {
-							ListButton (scene.obj, new GUIContent (scene.obj.name, scene.Icon), referenceStyle);
+							ListButton (scene.obj, scene.type, new GUIContent (scene.obj.name, scene.Icon), referenceStyle);
 						}
 					}
 					// Prefabs
 					if (item.scriptRef.prefabDependents.Count > 0) {
 						foreach (Dependent prefab in item.scriptRef.prefabDependents) {
-							ListButton (prefab.obj, new GUIContent (prefab.obj.name, prefab.Icon), referenceStyle);
+							ListButton (prefab.obj, prefab.type, new GUIContent (prefab.obj.name, prefab.Icon), referenceStyle);
 						}
 					}
 				}
@@ -290,7 +290,7 @@ public sealed class ScriptFinder : EditorWindow
 	/// <summary>
 	/// Generic button UI element for items which can be selected, clicked, and double clicked
 	/// </summary>
-	private void ListButton (UnityEngine.Object obj, GUIContent content, GUIStyle style)
+	private void ListButton (UnityEngine.Object obj, AssetType type, GUIContent content, GUIStyle style)
 	{
 		Rect position = GUILayoutUtility.GetRect (content, style);
 		//		int controlId = GUIUtility.GetControlID (FocusType.Native);
@@ -302,11 +302,24 @@ public sealed class ScriptFinder : EditorWindow
 				EditorGUIUtility.PingObject (obj);
 				// Open the file
 				if (Event.current.clickCount == 2) {
-					// FIXME if a scene, need to ask to open scene.
-					// If code, open in default editor and show first reference.
-					// If prefab, ask to load prefab into a blank scene.
-					Debug.Log ("double clicked");
-//					EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (obj));
+					// Scenes
+					if (type == AssetType.Scene) {
+						EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (obj));
+						// TODO show all objects which use the given script
+						GUIUtility.ExitGUI ();
+					}
+					// Prefabs
+					else if (type == AssetType.Prefab) {
+						if (EditorApplication.SaveCurrentSceneIfUserWantsTo ()) {
+							EditorApplication.NewScene ();
+							GameObject.Instantiate (obj);
+							GUIUtility.ExitGUI ();
+						}
+					}
+					// Scripts
+					else if (type == AssetType.CS || type == AssetType.JS || type == AssetType.Boo) {
+						AssetDatabase.OpenAsset (obj);
+					}
 				}
 			}
 		}
@@ -325,7 +338,7 @@ public sealed class ScriptFinder : EditorWindow
 	}
 	
 	
-	private void Refresh ()
+	private void ShowAll ()
 	{
 		var allScripts = FindAllMonoBehaviourScriptsInProject ();
 		
