@@ -202,8 +202,11 @@ public sealed class ScriptFinder : EditorWindow
 		foreach (var obj in FindObjectsOfTypeIncludingAssets (typeof(MonoScript))) {
 			if (obj as MonoScript) {
 				MonoScript script = (MonoScript)obj;
-				if (script.GetClass ().IsSubclassOf (typeof(MonoBehaviour))) {
-					scripts.Add (script);
+				System.Type type = script.GetClass ();
+				if (type != null) {
+					if (script.GetClass ().IsSubclassOf (typeof(MonoBehaviour))) {
+						scripts.Add (script);
+					}
 				}
 			}
 		}
@@ -213,32 +216,41 @@ public sealed class ScriptFinder : EditorWindow
 	
 	#region GUI
 	
-	private ScriptList list = new ScriptList ();
+	public List<ScriptListElement> elements = new List<ScriptListElement> ();
+	
+	private static bool unusedOnly = false;
+	private static bool showSelected = false;
+	private Vector2 scrollPos;
 	
 	void OnGUI ()
 	{
 		// Toolbar
 		GUILayout.BeginHorizontal ("Toolbar");
 		{
+			// Clear
 			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (45)))
 				Clear ();
+			// Refresh
 			if (GUILayout.Button ("Refresh", EditorStyles.toolbarButton, GUILayout.Width (45)))
 				Refresh ();
 			GUILayout.Space (6);
-			ScriptList.unusedOnly = GUILayout.Toggle (ScriptList.unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
+			// Only unused
+			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
+			// Show selected
+			showSelected = GUILayout.Toggle (showSelected, "Show selected", EditorStyles.toolbarButton, GUILayout.Width (75));
 			EditorGUILayout.Space ();
 		}
 		GUILayout.EndHorizontal ();
 		
 		// Script list
-		list.scrollPos = GUILayout.BeginScrollView (list.scrollPos);
+		scrollPos = GUILayout.BeginScrollView (scrollPos);
 		{
-			for (int i = 0; i < list.elements.Count; i++) {
-				ScriptListElement item = list.elements[i];
+			for (int i = 0; i < elements.Count; i++) {
+				ScriptListElement item = elements[i];
 				item.row = i;
 				
 				// Ignore used scripts
-				if (ScriptList.unusedOnly) {
+				if (unusedOnly) {
 					if (item.scriptRef.IsUsed)
 						continue;
 				}
@@ -323,24 +335,9 @@ public sealed class ScriptFinder : EditorWindow
 	}
 	
 	
-	private void SceneButton ()
-	{
-	}
-	
-	private void PrefabButton ()
-	{
-	}
-	
-	private void ScriptReferenceButton ()
-	{
-	}
-	
-	
-	
-	
 	private void Clear ()
 	{
-		list.elements.Clear ();
+		elements.Clear ();
 	}
 	
 	
@@ -357,11 +354,11 @@ public sealed class ScriptFinder : EditorWindow
 			references.Add (s);
 		}
 		
-		list.elements.Clear ();
+		elements.Clear ();
 		foreach (var r in references) {
 			ScriptListElement element = new ScriptListElement ();
 			element.scriptRef = r;
-			list.elements.Add (element);
+			elements.Add (element);
 		}
 	}
 	
