@@ -6,6 +6,9 @@ using System.IO;
 using System.Linq;
 
 
+// TODO Auto refresh when deleting or changing files. Is there a callback for this? May have to use my Watcher
+
+
 public enum ScriptType
 {
 	CS,
@@ -14,6 +17,9 @@ public enum ScriptType
 }
 
 
+/// <summary>
+/// Reference to a MonoBehaviour script and the objects which depend upon it.
+/// </summary>
 public class ScriptReference
 {
 	public readonly MonoScript script;
@@ -22,19 +28,15 @@ public class ScriptReference
 	/// <summary>
 	/// Prefabs containing the script.
 	/// </summary>
-	public List<UnityEngine.Object> prefabs = new List<UnityEngine.Object> ();
+	public List<UnityEngine.Object> prefabDependents = new List<UnityEngine.Object> ();
 	/// <summary>
 	/// Scene files containing the script.
 	/// </summary>
-	public List<UnityEngine.Object> scenes = new List<UnityEngine.Object> ();
-	/// <summary>
-	/// Game objects in the current scene containing the script.
-	/// </summary>
-	public List<UnityEngine.Object> gameObjects = new List<UnityEngine.Object> ();
+	public List<UnityEngine.Object> sceneDependents = new List<UnityEngine.Object> ();
 	/// <summary>
 	/// Other scripts that reference this script.
 	/// </summary>
-	public List<UnityEngine.Object> otherScripts = new List<UnityEngine.Object> ();
+	public List<UnityEngine.Object> scriptDependents = new List<UnityEngine.Object> ();
 	
 	
 	public ScriptReference (MonoScript script)
@@ -60,13 +62,79 @@ public class ScriptReference
 	/// </summary>
 	public bool IsUsed {
 		get {
-			if (prefabs.Count == 0 && scenes.Count == 0 && otherScripts.Count == 0)
+			if (prefabDependents.Count == 0 && sceneDependents.Count == 0 && scriptDependents.Count == 0)
 				return false;
 			else
 				return true;
 		}
 	}
+	
+	
+	/// <summary>
+	/// Finds and stores all objects which depend upon this MonoBehaviour script.
+	/// </summary>
+	public void LoadDependents ()
+	{
+		// Build scene refs
+		foreach (var scene in GetAllSceneAssets ()) {
+			if (SceneOrPrefabContainsScript (scene, script))
+				sceneDependents.Add (scene);
+		}
+		// Build prefab refs
+		foreach (var prefab in GetAllPrefabAssets ()) {
+			if (SceneOrPrefabContainsScript (prefab, script))
+				prefabDependents.Add (prefab);
+		}
+		// TODO find other dependent scripts
+	}
+	
+	
+	/// <summary>
+	/// Get all scene files contained in the project.
+	/// </summary>
+	private List<UnityEngine.Object> GetAllSceneAssets ()
+	{
+		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".unity");
+	}
+
+
+	/// <summary>
+	/// Get all prefabs contained in the project.
+	/// </summary>
+	private List<UnityEngine.Object> GetAllPrefabAssets ()
+	{
+		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".prefab");
+	}
+
+
+	private bool SceneOrPrefabContainsScript (UnityEngine.Object sceneOrPrefab, MonoScript script)
+	{
+		foreach (var d in EditorUtility.CollectDependencies (new UnityEngine.Object[] { sceneOrPrefab })) {
+			if (d == script)
+				return true;
+		}
+		return false;
+	}
+	
+	
+	/// <summary>
+	/// Get all asset files in the project which match the given extension (including the dot)
+	/// </summary>
+	private List<T> GetAllAssetsOfTypeWithExtension<T> (string extension) where T : UnityEngine.Object
+	{
+		List<T> objs = new List<T> ();
+		foreach (string path in AssetDatabase.GetAllAssetPaths ()) {
+			if (Path.GetExtension (path) != extension)
+				continue;
+			T asset = AssetDatabase.LoadAssetAtPath (path, typeof(T)) as T;
+			if (asset != null)
+				objs.Add (asset);
+		}
+		return objs;
+	}
 }
+
+
 
 
 /// <summary>
@@ -107,7 +175,6 @@ public sealed class ScriptFinder : EditorWindow
 	}
 	
 	
-	
 	/// <summary>
 	/// Get MonoScripts which are used in the given scene or prefab.
 	/// </summary>
@@ -120,53 +187,6 @@ public sealed class ScriptFinder : EditorWindow
 			}
 		}
 		return scripts;
-	}
-	
-	
-	
-	/// <summary>
-	/// Get all scene files contained in the project.
-	/// </summary>
-	private List<UnityEngine.Object> GetAllSceneAssets ()
-	{
-		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".unity");
-	}
-	
-	
-	/// <summary>
-	/// Get all prefabs contained in the project.
-	/// </summary>
-	private List<UnityEngine.Object> GetAllPrefabAssets ()
-	{
-		return GetAllAssetsOfTypeWithExtension<UnityEngine.Object> (".prefab");
-	}
-	
-	
-	private bool SceneOrPrefabContainsScript (UnityEngine.Object sceneOrPrefab, MonoScript script)
-	{
-		foreach (var d in EditorUtility.CollectDependencies (new UnityEngine.Object[] { sceneOrPrefab })) {
-			if (d == script)
-				return true;
-		}
-		return false;
-	}
-	
-	
-	/// <summary>
-	/// Get all asset files in the project which match the given extension (including the dot)
-	/// </summary>
-	private List<T> GetAllAssetsOfTypeWithExtension<T> (string extension)
-		where T : UnityEngine.Object
-	{
-		List<T> objs = new List<T> ();
-		foreach (string path in AssetDatabase.GetAllAssetPaths ()) {
-			if (Path.GetExtension (path) != extension)
-				continue;
-			T asset = AssetDatabase.LoadAssetAtPath (path, typeof(T)) as T;
-			if (asset != null)
-				objs.Add (asset);
-		}
-		return objs;
 	}
 	
 	
@@ -186,17 +206,6 @@ public sealed class ScriptFinder : EditorWindow
 		}
 		return scripts;
 	}
-	
-	
-	
-	
-	
-	
-	// When displaying scenes that use a particular script, click to highlight the scene file.
-	// Double click to open and highlight the objects that use the script. Also expands
-	// The view 
-	
-	// Auto refresh when deleting or changing files. Is there a callback for this? May have to use my Watcher
 	
 	
 	#region GUI
@@ -231,6 +240,9 @@ public sealed class ScriptFinder : EditorWindow
 						continue;
 				}
 				
+				if (item.scriptRef == null)
+					continue;
+				
 				
 				// FIXME this can be optimized by using Rect position = GUILayoutUtility.GetRect ()
 				// Also, cache my style modifications
@@ -246,17 +258,16 @@ public sealed class ScriptFinder : EditorWindow
 				GUILayout.BeginVertical (rowStyle);
 				{
 					// Master script
-					GUIContent scriptContent = new GUIContent (item.scriptRef.script.name, IconForScript (item.scriptRef.scriptType));
-					ScriptButton (scriptContent, scriptStyle);
+					ScriptMasterButton (item.scriptRef, scriptStyle);
 					// Scenes
-					if (item.scriptRef.scenes.Count > 0) {
-						foreach (var scene in item.scriptRef.scenes) {
+					if (item.scriptRef.sceneDependents.Count > 0) {
+						foreach (var scene in item.scriptRef.sceneDependents) {
 							GUILayout.Label (new GUIContent (scene.name, LoadIcon ("Scene Icon")), referenceStyle);
 						}
 					}
 					// Prefabs
-					if (item.scriptRef.prefabs.Count > 0) {
-						foreach (var prefab in item.scriptRef.prefabs) {
+					if (item.scriptRef.prefabDependents.Count > 0) {
+						foreach (var prefab in item.scriptRef.prefabDependents) {
 							GUILayout.Label (new GUIContent (prefab.name, LoadIcon ("Prefab Icon")), referenceStyle);
 						}
 					}
@@ -300,9 +311,25 @@ public sealed class ScriptFinder : EditorWindow
 	}
 	
 	
-	private void ScriptButton (GUIContent content, GUIStyle style)
+	private void ScriptMasterButton (ScriptReference script, GUIStyle style)
 	{
-		GUILayout.Button (content, style);
+		GUIContent content = new GUIContent (script.script.name, IconForScript (script.scriptType));
+		if (GUILayout.Button (content, style)) {
+			EditorGUIUtility.PingObject (script.script);
+		}
+	}
+	
+	
+	private void SceneButton ()
+	{
+	}
+	
+	private void PrefabButton ()
+	{
+	}
+	
+	private void ScriptReferenceButton ()
+	{
 	}
 	
 	
@@ -311,30 +338,18 @@ public sealed class ScriptFinder : EditorWindow
 	private void Clear ()
 	{
 		list.elements.Clear ();
-		
 	}
 	
 	
 	private void Refresh ()
 	{
-		Debug.Log ("Refreshing");
-		
 		var allScripts = FindAllMonoBehaviourScriptsInProject ();
 		
 		List<ScriptReference> references = new List<ScriptReference> ();
 		foreach (MonoScript script in allScripts) {
 			ScriptReference s = new ScriptReference (script);
 			
-			// Build scene refs
-			foreach (var scene in GetAllSceneAssets ()) {
-				if (SceneOrPrefabContainsScript (scene, script))
-					s.scenes.Add (scene);
-			}
-			// Build prefab refs
-			foreach (var prefab in GetAllPrefabAssets ()) {
-				if (SceneOrPrefabContainsScript (prefab, script))
-					s.prefabs.Add (prefab);
-			}
+			s.LoadDependents ();
 			
 			references.Add (s);
 		}
