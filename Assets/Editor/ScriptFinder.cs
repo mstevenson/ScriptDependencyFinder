@@ -78,7 +78,6 @@ public sealed class ScriptReference
 			if (SceneOrPrefabContainsScript (prefab, script))
 				prefabDependents.Add (new Dependent(prefab));
 		}
-		// TODO find other dependent scripts
 	}
 	
 	
@@ -284,38 +283,6 @@ public sealed class ScriptFinder : EditorWindow
 					}
 				}
 				GUILayout.EndVertical ();
-
-				
-//				GUIStyle endStyle = (item.row + 1) % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
-//				GUILayout.FlexibleSpace ();
-				
-				
-				
-//				Event current = Event.current;
-//				
-//				// Script line content
-//				GUIContent scriptContent = new GUIContent (item.scriptRef.script.name, IconForScript (item.scriptRef.scriptType));
-//				
-//				Rect position = GUILayoutUtility.GetRect (100, 50);
-//				int controlId = GUIUtility.GetControlID (FocusType.Native);
-//				
-//				// Click line element
-//				if (current.type == EventType.MouseDown && position.Contains (current.mousePosition)) {
-//					if (current.button == 0) {
-//						// TODO ping the object in the project pane
-//						Debug.Log ("click");
-//						if (current.clickCount == 2) {
-//							// TODO Open the script, scene, or prefab and highlight dependencies
-//							Debug.Log ("double click");
-//						}
-//					}
-//				}
-//				// Draw line element
-//				if (current.type == EventType.Repaint) {
-//					// FIXME optimized by caching a reference to these GUIStyles
-//					GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
-//					style.Draw (position, scriptContent, false, false, false, false);
-//				}
 			}
 		}
 		GUILayout.EndScrollView ();
