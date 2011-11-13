@@ -15,38 +15,47 @@ public enum ScriptType
 
 public class ScriptReference
 {
-	public MonoScript script;
+	public readonly MonoScript script;
+	public readonly ScriptType scriptType;
+	
 	/// <summary>
 	/// Prefabs containing the script.
 	/// </summary>
-	public UnityEngine.Object[] prefabs;
+	public List<UnityEngine.Object> prefabs = new List<UnityEngine.Object> ();
 	/// <summary>
 	/// Scene files containing the script.
 	/// </summary>
-	public UnityEngine.Object[] scenes;
+	public List<UnityEngine.Object> scenes = new List<UnityEngine.Object> ();
 	/// <summary>
 	/// Game objects in the current scene containing the script.
 	/// </summary>
-	public UnityEngine.Object[] gameObjects;
+	public List<UnityEngine.Object> gameObjects = new List<UnityEngine.Object> ();
 	/// <summary>
 	/// Other scripts that reference this script.
 	/// </summary>
-	public UnityEngine.Object[] otherScripts;
+	public List<UnityEngine.Object> otherScripts = new List<UnityEngine.Object> ();
 	
-	public ScriptType scriptType;
-
+	
+	public ScriptReference (MonoScript script)
+	{
+		this.script = script;
+//		string ext = Path.GetExtension (script.name
+//		if (this.script.name
+	}
+	
+	
 	/// <summary>
 	/// Is the script attached to anything within any scene or prefab?
 	/// </summary>
 	public bool IsAttached {
-		get { return prefabs.Length != 0 || scenes.Length != 0; }
+		get { return prefabs.Count != 0 || scenes.Count != 0; }
 	}
 
 	/// <summary>
 	/// Is the script referenced by another script?
 	/// </summary>
 	public bool IsReferenced {
-		get { return otherScripts.Length != 0; }
+		get { return otherScripts.Count != 0; }
 	}
 }
 
@@ -190,45 +199,43 @@ public sealed class ScriptFinder : EditorWindow
 		}
 		GUILayout.EndHorizontal ();
 		
+		// Script list
 		list.scrollPos = GUILayout.BeginScrollView (list.scrollPos);
 		{
-			for (int i = 0; i < list.elements.Length; i++) {
+			for (int i = 0; i < list.elements.Count; i++) {
 				list.elements[i].row = i;
+				list.elements[i].Draw ();
 			}
 		}
 		GUILayout.EndScrollView ();
-		
-		
-//		GUILayout.Box ("asdfdfs", "CN EntryBackEven");
-		//		GUILayout.Box ("asdf", "CN EntryBackOdd");
-		//		GUILayout.Box ("qer", "CN Message");
-		
-		
-		
-//		
-//		ScriptReference s = new ScriptReference ();
-//		s.script = new MonoScript ();
-//		s.script.name = "MyScript";
-//		s.scriptType = ScriptType.CS;
-//		
-//		ScriptListView view = new ScriptListView ();
-//		
-//		view.ScriptListElement (s, "box", null);
 	}
 	
 	
 	private void Clear ()
 	{
-		list.elements = new ScriptListElement[0];
+		list.elements.Clear ();
 	}
 	
 	
 	private void Refresh ()
 	{
-		//list.elements = 
+		Debug.Log ("Refreshing");
 		
-		foreach (MonoScript script in FindAllMonoBehaviourScriptsInProject ()) {
-			Debug.Log (script.GetClass ());
+		var allScripts = FindAllMonoBehaviourScriptsInProject ();
+		var allSceneAssets = GetAllSceneAssets ();
+		var allPrefabAssets = GetAllPrefabAssets ();
+		
+		List<ScriptReference> references = new List<ScriptReference> ();
+		foreach (MonoScript script in allScripts) {
+			ScriptReference s = new ScriptReference (script);
+			references.Add (s);
+		}
+		
+		list.elements.Clear ();
+		foreach (var r in references) {
+			ScriptListElement element = new ScriptListElement ();
+			element.scriptRef = r;
+			list.elements.Add (element);
 		}
 	}
 	

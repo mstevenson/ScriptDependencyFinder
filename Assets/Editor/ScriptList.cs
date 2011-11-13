@@ -1,17 +1,18 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections;
+using System.Collections.Generic;
 
 public class ScriptListElement
 {
 	public int row = 0;
 	public ScriptReference scriptRef;
 	
-	public void Draw (GUIStyle style, params GUILayoutOption[] options)
+	public void Draw ()
 	{
 		Event current = Event.current;
 		GUIContent content = new GUIContent (scriptRef.script.name, IconForScript (scriptRef.scriptType));
-		Rect position = GUILayoutUtility.GetRect (content, style, options);
+		Rect position = GUILayoutUtility.GetRect (100, 50);
 		int controlId = GUIUtility.GetControlID (FocusType.Native);
 		
 		if (current.type == EventType.MouseDown && position.Contains (current.mousePosition)) {
@@ -26,10 +27,9 @@ public class ScriptListElement
 		}
 		if (current.type == EventType.Repaint) {
 			// FIXME optimized by caching a reference to these GUIStyles
-			GUIStyle background = row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryOddBackground");
-			background.Draw (position, content, false, false, false, false);
-			
-//			style.Draw (position, content, controlId);
+			//			GUIStyle style = row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
+			GUIStyle style = new GUIStyle ("box");
+			style.Draw (position, content, false, false, false, false);
 		}
 	}
 	
@@ -89,5 +89,5 @@ public class ScriptList {
 	public static bool unusedOnly = false;
 	public Vector2 scrollPos;
 	
-	public ScriptListElement[] elements;
+	public List<ScriptListElement> elements = new List<ScriptListElement> ();
 }
