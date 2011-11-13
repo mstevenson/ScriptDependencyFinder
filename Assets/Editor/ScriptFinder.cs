@@ -66,7 +66,7 @@ public sealed class ScriptFinder : EditorWindow
 	[MenuItem("Custom/Find Unused Scripts")]
 	static void Init ()
 	{
-		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), true, "Script Finder");
+		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), false, "Script Finder");
 	}
 
 	#endregion
@@ -173,20 +173,63 @@ public sealed class ScriptFinder : EditorWindow
 	
 	#region GUI
 	
-	private ScriptListView list = new ScriptListView ();
+	private ScriptList list = new ScriptList ();
 	
 	void OnGUI ()
 	{
-		
-		// Show scenes and prefabs that use each script, and other scripts which reference this script
-		if (GUILayout.Button ("Show All Scripts")) {
-			foreach (MonoScript script in FindAllMonoBehaviourScriptsInProject ()) {
-				Debug.Log (script.GetClass ());
-			}
-			
-			// TODO option to show only unused scripts in the list
+		// Toolbar
+		GUILayout.BeginHorizontal ("Toolbar");
+		{
+			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (45)))
+				Clear ();
+			if (GUILayout.Button ("Refresh", EditorStyles.toolbarButton, GUILayout.Width (45)))
+				Refresh ();
+			GUILayout.Space (6);
+			ScriptList.unusedOnly = GUILayout.Toggle (ScriptList.unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
+			EditorGUILayout.Space ();
 		}
+		GUILayout.EndHorizontal ();
 		
+		list.scrollPos = GUILayout.BeginScrollView (list.scrollPos);
+		{
+			for (int i = 0; i < list.elements.Length; i++) {
+				list.elements[i].row = i;
+			}
+		}
+		GUILayout.EndScrollView ();
+		
+		
+//		GUILayout.Box ("asdfdfs", "CN EntryBackEven");
+		//		GUILayout.Box ("asdf", "CN EntryBackOdd");
+		//		GUILayout.Box ("qer", "CN Message");
+		
+		
+		
+//		
+//		ScriptReference s = new ScriptReference ();
+//		s.script = new MonoScript ();
+//		s.script.name = "MyScript";
+//		s.scriptType = ScriptType.CS;
+//		
+//		ScriptListView view = new ScriptListView ();
+//		
+//		view.ScriptListElement (s, "box", null);
+	}
+	
+	
+	private void Clear ()
+	{
+		list.elements = new ScriptListElement[0];
+	}
+	
+	
+	private void Refresh ()
+	{
+		//list.elements = 
+		
+		foreach (MonoScript script in FindAllMonoBehaviourScriptsInProject ()) {
+			Debug.Log (script.GetClass ());
+		}
 	}
 	
 	#endregion
