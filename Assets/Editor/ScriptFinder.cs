@@ -160,6 +160,13 @@ public sealed class Dependent
 /// </remarks>
 public sealed class ScriptFinder : EditorWindow
 {
+	private class ScriptListElement
+	{
+		public int row = 0;
+		public ScriptReference scriptRef;
+	}
+	
+	
 	#region Window Setup
 
 	private static ScriptFinder window;
@@ -211,7 +218,7 @@ public sealed class ScriptFinder : EditorWindow
 	
 	#region GUI
 	
-	public List<ScriptListElement> elements = new List<ScriptListElement> ();
+	private List<ScriptListElement> elements = new List<ScriptListElement> ();
 	
 	private static bool unusedOnly = false;
 	private static bool showSelected = false;
