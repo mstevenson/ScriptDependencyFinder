@@ -260,15 +260,13 @@ public sealed class ScriptFinder : EditorWindow
 				rowStyle.margin = new RectOffset (0, 0, 0, 0);
 				rowStyle.padding = new RectOffset (0, 0, 0, 0);
 				
-				GUIStyle scriptStyle = new GUIStyle ("label");
-				
 				GUIStyle referenceStyle = new GUIStyle ("label");
 				referenceStyle.margin.left = 22;
 				
 				GUILayout.BeginVertical (rowStyle);
 				{
 					// Master script
-					ScriptMasterButton (item.scriptRef, scriptStyle);
+					ScriptMasterButton (item.scriptRef, "label");
 					// Scenes
 					if (item.scriptRef.sceneDependents.Count > 0) {
 						foreach (Dependent scene in item.scriptRef.sceneDependents) {
@@ -289,12 +287,42 @@ public sealed class ScriptFinder : EditorWindow
 	}
 	
 	
+	/// <summary>
+	/// Generic button UI element for items which can be selected, clicked, and double clicked
+	/// </summary>
+	private void ListButton (UnityEngine.Object obj, GUIContent content, GUIStyle style)
+	{
+		Rect position = GUILayoutUtility.GetRect (content, style);
+		//		int controlId = GUIUtility.GetControlID (FocusType.Native);
+		
+		// Click line element
+		if (Event.current.type == EventType.MouseDown && position.Contains (Event.current.mousePosition)) {
+			if (Event.current.button == 0) {
+				// Show in project pane
+				EditorGUIUtility.PingObject (obj);
+				// Open the file
+				if (Event.current.clickCount == 2) {
+					// FIXME if a scene, need to ask to open scene.
+					// If code, open in default editor and show first reference.
+					// If prefab, ask to load prefab into a blank scene.
+					Debug.Log ("double clicked");
+//					EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (obj));
+				}
+			}
+		}
+		// Draw line element
+		if (Event.current.type == EventType.Repaint) {
+			// FIXME optimized by caching a reference to these GUIStyles
+//			GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
+			style.Draw (position, content, false, false, false, false);
+		}
+	}
+	
+	
 	private void ScriptMasterButton (ScriptReference script, GUIStyle style)
 	{
-		GUIContent content = new GUIContent (script.script.name, LoadIconForAsset (script.scriptType));
-		if (GUILayout.Button (content, style)) {
-			EditorGUIUtility.PingObject (script.script);
-		}
+		GUIContent content = new GUIContent (script.script.name, script.Icon);
+		ListButton (script.script, content, style);
 	}
 	
 	
