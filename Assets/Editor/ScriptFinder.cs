@@ -40,10 +40,6 @@ public sealed class ScriptReference
 	/// Scene files containing the script.
 	/// </summary>
 	public List<Dependent> sceneDependents = new List<Dependent> ();
-	/// <summary>
-	/// Other scripts that reference this script.
-	/// </summary>
-	public List<Dependent> scriptDependents = new List<Dependent> ();
 	
 	
 	// Constructor
@@ -59,7 +55,7 @@ public sealed class ScriptReference
 	/// </summary>
 	public bool IsUsed {
 		get {
-			if (prefabDependents.Count == 0 && sceneDependents.Count == 0 && scriptDependents.Count == 0)
+			if (prefabDependents.Count == 0 && sceneDependents.Count == 0)
 				return false;
 			else
 				return true;
@@ -378,9 +374,9 @@ public sealed class ScriptFinder : EditorWindow
 	}
 
 
-	public static Texture2D LoadIconForAsset (AssetType scriptType)
+	public static Texture2D LoadIconForAsset (AssetType assetType)
 	{
-		switch (scriptType) {
+		switch (assetType) {
 		case AssetType.Scene:
 			return LoadIcon ("Scene Icon");
 		case AssetType.Prefab:
@@ -408,7 +404,7 @@ public sealed class ScriptFinder : EditorWindow
 	{
 		string ext = Path.GetExtension (AssetDatabase.GetAssetPath (obj)).ToLower ();
 		switch (ext) {
-		case ".scene":
+		case ".unity":
 			return AssetType.Scene;
 		case ".prefab":
 			return AssetType.Prefab;
