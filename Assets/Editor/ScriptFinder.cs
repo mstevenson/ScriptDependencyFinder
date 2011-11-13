@@ -266,17 +266,17 @@ public sealed class ScriptFinder : EditorWindow
 				GUILayout.BeginVertical (rowStyle);
 				{
 					// Master script
-					ScriptMasterButton (item.scriptRef, "label");
+					ListButton (item.scriptRef.script, new GUIContent (item.scriptRef.script.name, item.scriptRef.Icon), "label");
 					// Scenes
 					if (item.scriptRef.sceneDependents.Count > 0) {
 						foreach (Dependent scene in item.scriptRef.sceneDependents) {
-							GUILayout.Label (new GUIContent (scene.obj.name, scene.Icon), referenceStyle);
+							ListButton (scene.obj, new GUIContent (scene.obj.name, scene.Icon), referenceStyle);
 						}
 					}
 					// Prefabs
 					if (item.scriptRef.prefabDependents.Count > 0) {
 						foreach (Dependent prefab in item.scriptRef.prefabDependents) {
-							GUILayout.Label (new GUIContent (prefab.obj.name, prefab.Icon), referenceStyle);
+							ListButton (prefab.obj, new GUIContent (prefab.obj.name, prefab.Icon), referenceStyle);
 						}
 					}
 				}
@@ -316,13 +316,6 @@ public sealed class ScriptFinder : EditorWindow
 //			GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
 			style.Draw (position, content, false, false, false, false);
 		}
-	}
-	
-	
-	private void ScriptMasterButton (ScriptReference script, GUIStyle style)
-	{
-		GUIContent content = new GUIContent (script.script.name, script.Icon);
-		ListButton (script.script, content, style);
 	}
 	
 	
