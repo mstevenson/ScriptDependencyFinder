@@ -171,10 +171,10 @@ public sealed class ScriptFinder : EditorWindow
 
 	private static ScriptFinder window;
 
-	[MenuItem("Custom/Find Unused Scripts")]
+	[MenuItem("Window/Script Dependencies")]
 	static void Init ()
 	{
-		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), false, "Script Finder");
+		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), false, "Dependencies");
 	}
 
 	#endregion
@@ -263,6 +263,9 @@ public sealed class ScriptFinder : EditorWindow
 				
 				// FIXME this can be optimized by using Rect position = GUILayoutUtility.GetRect ()
 				// Also, cache my style modifications
+				
+				// FIXME the row style needs to be determined at the very end after the list has been culled
+				
 				GUIStyle rowStyle = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
 				rowStyle.margin = new RectOffset (0, 0, 0, 0);
 				rowStyle.padding = new RectOffset (0, 0, 0, 0);
