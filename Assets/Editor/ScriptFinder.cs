@@ -59,7 +59,12 @@ public class ScriptReference
 	/// Is this script referenced by any object or other script?
 	/// </summary>
 	public bool IsUsed {
-		get { return prefabs.Count != 0 || scenes.Count != 0 || otherScripts.Count != 0;}
+		get {
+			if (prefabs.Count == 0 && scenes.Count == 0 && otherScripts.Count == 0)
+				return false;
+			else
+				return true;
+		}
 	}
 }
 
@@ -217,42 +222,90 @@ public sealed class ScriptFinder : EditorWindow
 		list.scrollPos = GUILayout.BeginScrollView (list.scrollPos);
 		{
 			for (int i = 0; i < list.elements.Count; i++) {
-				Event current = Event.current;
 				ScriptListElement item = list.elements[i];
 				item.row = i;
 				
 				// Ignore used scripts
 				if (ScriptList.unusedOnly) {
-					if (item.scriptRef.IsUsed == false)
+					if (item.scriptRef.IsUsed)
 						continue;
 				}
 				
 				
-				// Script line content
-				GUIContent scriptContent = new GUIContent (item.scriptRef.script.name, IconForScript (item.scriptRef.scriptType));
+				// FIXME this can be optimized by using Rect position = GUILayoutUtility.GetRect ()
+				// Also, cache my style modifications
+				GUIStyle rowStyle = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
+				rowStyle.margin = new RectOffset (0, 0, 0, 0);
+				rowStyle.padding = new RectOffset (0, 0, 0, 0);
 				
-				Rect position = GUILayoutUtility.GetRect (100, 50);
-				int controlId = GUIUtility.GetControlID (FocusType.Native);
+				GUIStyle scriptStyle = new GUIStyle ("label");
 				
-				if (current.type == EventType.MouseDown && position.Contains (current.mousePosition)) {
-					if (current.button == 0) {
-						// TODO ping the object in the project pane
-						Debug.Log ("click");
-						if (current.clickCount == 2) {
-							// TODO Open the script, scene, or prefab and highlight dependencies
-							Debug.Log ("double click");
+				GUIStyle referenceStyle = new GUIStyle ("label");
+				referenceStyle.margin.left = 22;
+				
+				GUILayout.BeginVertical (rowStyle);
+				{
+					// Master script
+					GUIContent scriptContent = new GUIContent (item.scriptRef.script.name, IconForScript (item.scriptRef.scriptType));
+					ScriptButton (scriptContent, scriptStyle);
+					// Scenes
+					if (item.scriptRef.scenes.Count > 0) {
+						foreach (var scene in item.scriptRef.scenes) {
+							GUILayout.Label (new GUIContent (scene.name, LoadIcon ("Scene Icon")), referenceStyle);
+						}
+					}
+					// Prefabs
+					if (item.scriptRef.prefabs.Count > 0) {
+						foreach (var prefab in item.scriptRef.prefabs) {
+							GUILayout.Label (new GUIContent (prefab.name, LoadIcon ("Prefab Icon")), referenceStyle);
 						}
 					}
 				}
-				if (current.type == EventType.Repaint) {
-					// FIXME optimized by caching a reference to these GUIStyles
-					GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
-					style.Draw (position, scriptContent, false, false, false, false);
-				}
+				GUILayout.EndVertical ();
+
+				
+//				GUIStyle endStyle = (item.row + 1) % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
+//				GUILayout.FlexibleSpace ();
+				
+				
+				
+//				Event current = Event.current;
+//				
+//				// Script line content
+//				GUIContent scriptContent = new GUIContent (item.scriptRef.script.name, IconForScript (item.scriptRef.scriptType));
+//				
+//				Rect position = GUILayoutUtility.GetRect (100, 50);
+//				int controlId = GUIUtility.GetControlID (FocusType.Native);
+//				
+//				// Click line element
+//				if (current.type == EventType.MouseDown && position.Contains (current.mousePosition)) {
+//					if (current.button == 0) {
+//						// TODO ping the object in the project pane
+//						Debug.Log ("click");
+//						if (current.clickCount == 2) {
+//							// TODO Open the script, scene, or prefab and highlight dependencies
+//							Debug.Log ("double click");
+//						}
+//					}
+//				}
+//				// Draw line element
+//				if (current.type == EventType.Repaint) {
+//					// FIXME optimized by caching a reference to these GUIStyles
+//					GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
+//					style.Draw (position, scriptContent, false, false, false, false);
+//				}
 			}
 		}
 		GUILayout.EndScrollView ();
 	}
+	
+	
+	private void ScriptButton (GUIContent content, GUIStyle style)
+	{
+		GUILayout.Button (content, style);
+	}
+	
+	
 	
 	
 	private void Clear ()
