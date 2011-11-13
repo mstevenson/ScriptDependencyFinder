@@ -9,51 +9,48 @@ using System.Linq;
 // TODO Auto refresh when deleting or changing files. Is there a callback for this? May have to use my Watcher
 
 
-public enum ScriptType
+public enum AssetType
 {
+	Scene,
+	Prefab,
 	CS,
 	JS,
-	Boo
+	Boo,
+	Unknown
 }
 
 
 /// <summary>
 /// Reference to a MonoBehaviour script and the objects which depend upon it.
 /// </summary>
-public class ScriptReference
+public sealed class ScriptReference
 {
 	public readonly MonoScript script;
-	public readonly ScriptType scriptType;
+	public readonly AssetType scriptType;
+	
+	public Texture2D Icon {
+		get { return ScriptFinder.LoadIconForAsset (scriptType); }
+	}
 	
 	/// <summary>
 	/// Prefabs containing the script.
 	/// </summary>
-	public List<UnityEngine.Object> prefabDependents = new List<UnityEngine.Object> ();
+	public List<Dependent> prefabDependents = new List<Dependent> ();
 	/// <summary>
 	/// Scene files containing the script.
 	/// </summary>
-	public List<UnityEngine.Object> sceneDependents = new List<UnityEngine.Object> ();
+	public List<Dependent> sceneDependents = new List<Dependent> ();
 	/// <summary>
 	/// Other scripts that reference this script.
 	/// </summary>
-	public List<UnityEngine.Object> scriptDependents = new List<UnityEngine.Object> ();
+	public List<Dependent> scriptDependents = new List<Dependent> ();
 	
 	
+	// Constructor
 	public ScriptReference (MonoScript script)
 	{
 		this.script = script;
-		string ext = Path.GetExtension (AssetDatabase.GetAssetPath (script)).ToLower ();
-		switch (ext) {
-		case ".cs":
-			scriptType = ScriptType.CS;
-			break;
-		case ".js":
-			scriptType = ScriptType.JS;
-			break;
-		case ".boo":
-			scriptType = ScriptType.Boo;
-			break;
-		}
+		scriptType = ScriptFinder.AssetTypeFromObject (script);
 	}
 	
 	
@@ -78,12 +75,12 @@ public class ScriptReference
 		// Build scene refs
 		foreach (var scene in GetAllSceneAssets ()) {
 			if (SceneOrPrefabContainsScript (scene, script))
-				sceneDependents.Add (scene);
+				sceneDependents.Add (new Dependent(scene));
 		}
 		// Build prefab refs
 		foreach (var prefab in GetAllPrefabAssets ()) {
 			if (SceneOrPrefabContainsScript (prefab, script))
-				prefabDependents.Add (prefab);
+				prefabDependents.Add (new Dependent(prefab));
 		}
 		// TODO find other dependent scripts
 	}
@@ -135,6 +132,29 @@ public class ScriptReference
 }
 
 
+/// <summary>
+/// An object which depends upon a particular MonoBehaviour script.
+/// </summary>
+public sealed class Dependent
+{
+	public readonly UnityEngine.Object obj;
+	public readonly AssetType type;
+	
+	public Texture2D Icon {
+		get {
+			return ScriptFinder.LoadIconForAsset (type);
+		}
+	}
+	
+	// Constructor
+	public Dependent (UnityEngine.Object obj)
+	{
+		this.obj = obj;
+		type = ScriptFinder.AssetTypeFromObject (obj);
+	}
+}
+
+
 
 
 /// <summary>
@@ -156,23 +176,6 @@ public sealed class ScriptFinder : EditorWindow
 	}
 
 	#endregion
-
-	
-	public enum AssetType {
-		Prefab,
-		Scene,
-		Script
-	}
-	
-	
-	/// <summary>
-	/// A Scene, Prefab, or MonoScript which relies a particular MonoBehaviour.
-	/// </summary>
-	private class ScriptDepender {
-		public UnityEngine.Object obj;
-		public string path;
-		AssetType assetType;
-	}
 	
 	
 	/// <summary>
@@ -261,14 +264,14 @@ public sealed class ScriptFinder : EditorWindow
 					ScriptMasterButton (item.scriptRef, scriptStyle);
 					// Scenes
 					if (item.scriptRef.sceneDependents.Count > 0) {
-						foreach (var scene in item.scriptRef.sceneDependents) {
-							GUILayout.Label (new GUIContent (scene.name, LoadIcon ("Scene Icon")), referenceStyle);
+						foreach (Dependent scene in item.scriptRef.sceneDependents) {
+							GUILayout.Label (new GUIContent (scene.obj.name, scene.Icon), referenceStyle);
 						}
 					}
 					// Prefabs
 					if (item.scriptRef.prefabDependents.Count > 0) {
-						foreach (var prefab in item.scriptRef.prefabDependents) {
-							GUILayout.Label (new GUIContent (prefab.name, LoadIcon ("Prefab Icon")), referenceStyle);
+						foreach (Dependent prefab in item.scriptRef.prefabDependents) {
+							GUILayout.Label (new GUIContent (prefab.obj.name, prefab.Icon), referenceStyle);
 						}
 					}
 				}
@@ -313,7 +316,7 @@ public sealed class ScriptFinder : EditorWindow
 	
 	private void ScriptMasterButton (ScriptReference script, GUIStyle style)
 	{
-		GUIContent content = new GUIContent (script.script.name, IconForScript (script.scriptType));
+		GUIContent content = new GUIContent (script.script.name, LoadIconForAsset (script.scriptType));
 		if (GUILayout.Button (content, style)) {
 			EditorGUIUtility.PingObject (script.script);
 		}
@@ -366,26 +369,8 @@ public sealed class ScriptFinder : EditorWindow
 	#endregion
 	
 	
-	
-	
-	Texture2D LoadIcon (string name)
+	public static Texture2D LoadIcon (string name)
 	{
-		/*
-		 * console.infoicon.png
-		 * console.warnicon.png
-		 * console.erroricon.png
-		 * console.infoicon.sml.png
-		 * console.warnicon.sml.png
-		 * console.erroricon.sml.png
-		 * 
-		 * TextAsset Icon.png
-		 * js Script Icon.png
-		 * cs Script Icon.png
-		 * boo Script Icon.png
-		 * Prefab Icon.png
-		 * Scene Icon.png
-		 */		
-		
 		//Based on EditorGUIUtility.LoadIconForSkin
 		if (!UsingProSkin)
 			return EditorGUIUtility.LoadRequired ("Builtin Skins/Icons/" + name + ".png") as Texture2D;
@@ -396,21 +381,48 @@ public sealed class ScriptFinder : EditorWindow
 	}
 
 
-	Texture2D IconForScript (ScriptType scriptType)
+	public static Texture2D LoadIconForAsset (AssetType scriptType)
 	{
 		switch (scriptType) {
-		case ScriptType.CS:
+		case AssetType.Scene:
+			return LoadIcon ("Scene Icon");
+		case AssetType.Prefab:
+			return LoadIcon ("Prefab Icon");
+		case AssetType.CS:
 			return LoadIcon ("cs Script Icon");
-		case ScriptType.JS:
+		case AssetType.JS:
 			return LoadIcon ("js Script Icon");
-		case ScriptType.Boo:
+		case AssetType.Boo:
 			return LoadIcon ("boo Script Icon");
+		case AssetType.Unknown:
+			// TODO make this a blank document rather than a text document
+			return LoadIcon ("TextAsset Icon");
 		}
 		return null;
 	}
 
 
-	bool UsingProSkin {
+	public static bool UsingProSkin {
 		get { return GUI.skin.name == "SceneGUISkin"; }
+	}
+	
+	
+	public static AssetType AssetTypeFromObject (UnityEngine.Object obj)
+	{
+		string ext = Path.GetExtension (AssetDatabase.GetAssetPath (obj)).ToLower ();
+		switch (ext) {
+		case ".scene":
+			return AssetType.Scene;
+		case ".prefab":
+			return AssetType.Prefab;
+		case ".cs":
+			return AssetType.CS;
+		case ".js":
+			return AssetType.JS;
+		case ".boo":
+			return AssetType.Boo;
+		default:
+			return AssetType.Unknown;
+		}
 	}
 }
