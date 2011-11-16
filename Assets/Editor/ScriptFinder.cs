@@ -9,6 +9,26 @@ using System.Linq;
 // TODO Auto refresh when deleting or changing files. Is there a callback for this? May have to use my Watcher
 
 
+[System.Serializable]
+public class ListViewState
+{
+	public int id;
+	public Vector2 scrollPos = Vector2.zero;
+	public int row = -1;
+	public int totalRows = 0;
+	public bool selectionChanged = false;
+	public ListableAsset<UnityEngine.Object>[] elements;
+}
+
+
+public class ListElement
+{
+	public int row = 0;
+	public ScriptReference scriptRef;
+}
+
+
+
 public enum AssetType
 {
 	Scene,
@@ -23,37 +43,21 @@ public enum AssetType
 /// <summary>
 /// Reference to a MonoBehaviour script and the objects which depend upon it.
 /// </summary>
-public sealed class ScriptReference
+public class ScriptReference : ListableAsset<MonoScript>
 {
-	public readonly MonoScript script;
-	public readonly AssetType scriptType;
-	
-	public Texture2D Icon {
-		get { return ScriptFinder.LoadIconForAsset (scriptType); }
-	}
-	
 	/// <summary>
 	/// Prefabs containing the script.
 	/// </summary>
-	public List<Dependent> prefabDependents = new List<Dependent> ();
+	public List<ListableAsset<UnityEngine.Object>> prefabDependents = new List<ListableAsset<UnityEngine.Object>> ();
 	/// <summary>
 	/// Scene files containing the script.
 	/// </summary>
-	public List<Dependent> sceneDependents = new List<Dependent> ();
-	
-	
-	// Constructor
-	public ScriptReference (MonoScript script)
-	{
-		this.script = script;
-		scriptType = ScriptFinder.AssetTypeFromObject (script);
-	}
-	
+	public List<ListableAsset<UnityEngine.Object>> sceneDependents = new List<ListableAsset<UnityEngine.Object>> ();
 	
 	/// <summary>
 	/// Is this script referenced by any object or other script?
 	/// </summary>
-	public bool IsUsed {
+	public bool IsADependency {
 		get {
 			if (prefabDependents.Count == 0 && sceneDependents.Count == 0)
 				return false;
@@ -63,6 +67,12 @@ public sealed class ScriptReference
 	}
 	
 	
+	// Constructor
+	public ScriptReference (MonoScript script) : base(script)
+	{
+	}
+	
+		
 	/// <summary>
 	/// Finds and stores all objects which depend upon this MonoBehaviour script.
 	/// </summary>
@@ -70,13 +80,13 @@ public sealed class ScriptReference
 	{
 		// Build scene refs
 		foreach (var scene in GetAllSceneAssets ()) {
-			if (SceneOrPrefabContainsScript (scene, script))
-				sceneDependents.Add (new Dependent(scene));
+			if (SceneOrPrefabContainsScript (scene, Asset))
+				sceneDependents.Add (new ListableAsset<UnityEngine.Object>(scene));
 		}
 		// Build prefab refs
 		foreach (var prefab in GetAllPrefabAssets ()) {
-			if (SceneOrPrefabContainsScript (prefab, script))
-				prefabDependents.Add (new Dependent(prefab));
+			if (SceneOrPrefabContainsScript (prefab, Asset))
+				prefabDependents.Add (new ListableAsset<UnityEngine.Object>(prefab));
 		}
 	}
 	
@@ -130,22 +140,22 @@ public sealed class ScriptReference
 /// <summary>
 /// An object which depends upon a particular MonoBehaviour script.
 /// </summary>
-public sealed class Dependent
+public class ListableAsset<T> where T : UnityEngine.Object
 {
-	public readonly UnityEngine.Object obj;
-	public readonly AssetType type;
+	public T Asset { get; private set; }
+	public AssetType Type { get; private set; }
 	
 	public Texture2D Icon {
 		get {
-			return ScriptFinder.LoadIconForAsset (type);
+			return ScriptFinder.LoadIconForAsset (Type);
 		}
 	}
 	
 	// Constructor
-	public Dependent (UnityEngine.Object obj)
+	public ListableAsset (T obj)
 	{
-		this.obj = obj;
-		type = ScriptFinder.AssetTypeFromObject (obj);
+		this.Asset = obj;
+		Type = ScriptFinder.AssetTypeFromObject (obj);
 	}
 }
 
@@ -160,12 +170,6 @@ public sealed class Dependent
 /// </remarks>
 public sealed class ScriptFinder : EditorWindow
 {
-	private class ScriptListElement
-	{
-		public int row = 0;
-		public ScriptReference scriptRef;
-	}
-	
 	
 	#region Window Setup
 
@@ -218,7 +222,7 @@ public sealed class ScriptFinder : EditorWindow
 	
 	#region GUI
 	
-	private List<ScriptListElement> elements = new List<ScriptListElement> ();
+	private List<ListElement> elements = new List<ListElement> ();
 	
 	private static bool unusedOnly = false;
 	private static bool showSelected = false;
@@ -248,12 +252,12 @@ public sealed class ScriptFinder : EditorWindow
 		scrollPos = GUILayout.BeginScrollView (scrollPos);
 		{
 			for (int i = 0; i < elements.Count; i++) {
-				ScriptListElement item = elements[i];
+				ListElement item = elements[i];
 				item.row = i;
 				
 				// Ignore used scripts
 				if (unusedOnly) {
-					if (item.scriptRef.IsUsed)
+					if (item.scriptRef.IsADependency)
 						continue;
 				}
 				
@@ -275,18 +279,20 @@ public sealed class ScriptFinder : EditorWindow
 				
 				GUILayout.BeginVertical (rowStyle);
 				{
-					// Master script
-					ListButton (item.scriptRef.script, item.scriptRef.scriptType, new GUIContent (item.scriptRef.script.name, item.scriptRef.Icon), "label");
-					// Scenes
-					if (item.scriptRef.sceneDependents.Count > 0) {
-						foreach (Dependent scene in item.scriptRef.sceneDependents) {
-							ListButton (scene.obj, scene.type, new GUIContent (scene.obj.name, scene.Icon), referenceStyle);
+					if (item.scriptRef.Asset != null) {
+						// Master script
+						ListButton (item.scriptRef.Asset, item.scriptRef.Type, new GUIContent (item.scriptRef.Asset.name, item.scriptRef.Icon), "label");
+						// Scenes
+						if (item.scriptRef.sceneDependents.Count > 0) {
+							foreach (var scene in item.scriptRef.sceneDependents) {
+								ListButton (scene.Asset, scene.Type, new GUIContent (scene.Asset.name, scene.Icon), referenceStyle);
+							}
 						}
-					}
-					// Prefabs
-					if (item.scriptRef.prefabDependents.Count > 0) {
-						foreach (Dependent prefab in item.scriptRef.prefabDependents) {
-							ListButton (prefab.obj, prefab.type, new GUIContent (prefab.obj.name, prefab.Icon), referenceStyle);
+						// Prefabs
+						if (item.scriptRef.prefabDependents.Count > 0) {
+							foreach (var prefab in item.scriptRef.prefabDependents) {
+								ListButton (prefab.Asset, prefab.Type, new GUIContent (prefab.Asset.name, prefab.Icon), referenceStyle);
+							}
 						}
 					}
 				}
@@ -312,13 +318,14 @@ public sealed class ScriptFinder : EditorWindow
 				EditorGUIUtility.PingObject (obj);
 				// Open the file
 				if (Event.current.clickCount == 2) {
-					// Scenes
+					// Open scene
 					if (type == AssetType.Scene) {
-						EditorUtility.OpenWithDefaultApp (AssetDatabase.GetAssetPath (obj));
-						// TODO show all objects which use the given script
-						GUIUtility.ExitGUI ();
+						if (EditorApplication.SaveCurrentSceneIfUserWantsTo ()) {
+							EditorApplication.OpenScene (AssetDatabase.GetAssetPath (obj));
+							GUIUtility.ExitGUI ();
+						}
 					}
-					// Prefabs
+					// Open prefab
 					else if (type == AssetType.Prefab) {
 						if (EditorApplication.SaveCurrentSceneIfUserWantsTo ()) {
 							EditorApplication.NewScene ();
@@ -326,7 +333,7 @@ public sealed class ScriptFinder : EditorWindow
 							GUIUtility.ExitGUI ();
 						}
 					}
-					// Scripts
+					// Open script
 					else if (type == AssetType.CS || type == AssetType.JS || type == AssetType.Boo) {
 						AssetDatabase.OpenAsset (obj);
 					}
@@ -363,7 +370,7 @@ public sealed class ScriptFinder : EditorWindow
 		
 		elements.Clear ();
 		foreach (var r in references) {
-			ScriptListElement element = new ScriptListElement ();
+			ListElement element = new ListElement ();
 			element.scriptRef = r;
 			elements.Add (element);
 		}
