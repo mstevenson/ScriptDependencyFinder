@@ -91,7 +91,6 @@ public sealed class DependencyFinder : EditorWindow
 	
 	
 	private static bool unusedOnly = false;
-	private static bool liveUpdate = false;
 	private Vector2 scrollPos;
 
 
@@ -107,7 +106,22 @@ public sealed class DependencyFinder : EditorWindow
 		List<MonoScript> scripts = FindAllMonoBehaviourScriptsInProject ();
 		List<AssetReference> scriptRefs = scripts.Select<MonoScript, AssetReference> (s => new AssetReference (s)).ToList ();
 		List<AssetReference> allAssets = FindAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
+		if (allAssets.Count == 0) {
+			return;
+		}
 		listedAssets = FindReverseDependencies (scriptRefs, allAssets);
+	}
+	
+	private void ShowSelected ()
+	{
+		// TODO cache allAssets unless made dirty by project changes.
+		
+		List<AssetReference> selected = Selection.objects.Select<Object, AssetReference> (o => new AssetReference (o)).ToList ();
+		List<AssetReference> allAssets = FindAssetDependencies ();
+		if (allAssets.Count == 0) {
+			return;
+		}
+		listedAssets = FindReverseDependencies (selected, allAssets);
 	}
 	
 	
@@ -148,13 +162,18 @@ public sealed class DependencyFinder : EditorWindow
 	
 	private List<AssetReference> FindAssetDependencies (params string[] assetExtensions)
 	{
-		// Grab asset paths for assets with the given list of extensions
-		string[] assetPaths = AssetDatabase.GetAllAssetPaths ()
-			.Where (p => HasExtension (p, assetExtensions)
-					&& !string.IsNullOrEmpty (Path.GetExtension (p))
-					&& p.StartsWith ("assets"))
-			.ToArray ();
-		
+		string[] assetPaths;
+		if (assetExtensions.Length == 0) {
+			assetPaths = AssetDatabase.GetAllAssetPaths ();
+		}
+		else {
+			// Grab asset paths for assets with the given list of extensions
+			assetPaths = AssetDatabase.GetAllAssetPaths ()
+				.Where (p => HasExtension (p, assetExtensions)
+						&& !string.IsNullOrEmpty (Path.GetExtension (p))
+						&& p.StartsWith ("assets"))
+				.ToArray ();
+		}
 		bool cancelled = false;
 		List<AssetReference> foundAssets = new List<AssetReference> ();
 		
@@ -166,7 +185,6 @@ public sealed class DependencyFinder : EditorWindow
 				i / (float)assetPaths.Length);
 			if (cancelled) {
 				EditorUtility.ClearProgressBar ();
-				ClearList ();
 				return new List<AssetReference> ();
 			}
 			
@@ -215,9 +233,10 @@ public sealed class DependencyFinder : EditorWindow
 				ClearList ();
 			if (GUILayout.Button ("Show Scripts", EditorStyles.toolbarButton, GUILayout.Width (70)))
 				ShowScripts ();
+			if (GUILayout.Button ("Show Selected", EditorStyles.toolbarButton, GUILayout.Width (75)))
+				ShowSelected ();
 			GUILayout.Space (6);
 			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
-			liveUpdate = GUILayout.Toggle (liveUpdate, "Live update", EditorStyles.toolbarButton, GUILayout.Width (65));
 			EditorGUILayout.Space ();
 		}
 		GUILayout.EndHorizontal ();
