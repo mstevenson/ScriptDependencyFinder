@@ -6,30 +6,10 @@ using System.IO;
 using System.Linq;
 
 
-[System.Serializable]
-public class ListViewState
-{
-	public int id;
-	public Vector2 scrollPos = Vector2.zero;
-	public int row = -1;
-	public int totalRows = 0;
-	public bool selectionChanged = false;
-	public AssetReference[] elements;
-}
-
-
-public class ListElement
-{
-	public int row = 0;
-	public AssetReference scriptRef;
-}
-
-
 public class AssetReference
 {
 	public Object asset;
 	public string path;
-	public Texture icon;
 
 	public AssetReference[] dependencies;
 
@@ -37,14 +17,12 @@ public class AssetReference
 	{
 		this.asset = asset;
 		this.path = AssetDatabase.GetAssetPath (asset);
-		this.icon = AssetDatabase.GetCachedIcon (path);
 	}
 
 	public AssetReference (string path)
 	{
 		this.path = path;
 		this.asset = AssetDatabase.LoadMainAssetAtPath (path);
-		this.icon = AssetDatabase.GetCachedIcon (path);
 	}
 }
 
@@ -64,7 +42,7 @@ public sealed class ScriptFinder : EditorWindow
 
 	private static ScriptFinder window;
 
-	[MenuItem("Window/Script Dependencies")]
+	[MenuItem("Window/Dependencies")]
 	static void Init ()
 	{
 		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), false, "Dependencies");
@@ -105,7 +83,7 @@ public sealed class ScriptFinder : EditorWindow
 				}
 			}
 		}
-//		scripts.Sort ();
+		scripts.Sort ();
 		return scripts;
 	}
 
@@ -163,12 +141,12 @@ public sealed class ScriptFinder : EditorWindow
 				GUILayout.BeginVertical (rowStyle);
 				{
 					if (asset.asset != null) {
-						ListButton (asset, new GUIContent (asset.asset.name, asset.icon), "label");
+						ListButton (asset, new GUIContent (asset.asset.name, AssetDatabase.GetCachedIcon (asset.path)), "label");
 						currentLine++;
-//						foreach (AssetReference dependency in asset.dependencies) {
-//							if (dependency.asset != null)
-//								ListButton (dependency, new GUIContent (dependency.asset.name, dependency.icon), referenceStyle);
-//						}
+						foreach (AssetReference dependency in asset.dependencies) {
+							if (dependency.asset != null)
+								ListButton (dependency, new GUIContent (dependency.asset.name, AssetDatabase.GetCachedIcon (dependency.path)), referenceStyle);
+						}
 					}
 				}
 				GUILayout.EndVertical ();
@@ -256,16 +234,18 @@ public sealed class ScriptFinder : EditorWindow
 		// Grab asset paths for assets with the given list of extensions
 		string[] assetPaths = AssetDatabase.GetAllAssetPaths ()
 			.Where (p => HasExtension (p, assetExtensions)
-					&& !string.IsNullOrEmpty(Path.GetExtension(p))
+					&& !string.IsNullOrEmpty (Path.GetExtension (p))
 					&& p.StartsWith ("assets"))
 			.ToArray ();
 		
 		bool cancelled = false;
 		
+		List<AssetReference> foundAssets = new List<AssetReference> ();
+		
 		for (int i = 0; i < assetPaths.Length; i++) {
 			cancelled = EditorUtility.DisplayCancelableProgressBar (
 				"Finding dependencies",
-				"Finding dependencies for: " + Path.GetFileName(assetPaths[i]),
+				"Finding dependencies for: " + Path.GetFileName (assetPaths[i]),
 				i / (float)assetPaths.Length);
 			if (cancelled) {
 				EditorUtility.ClearProgressBar ();
@@ -279,8 +259,9 @@ public sealed class ScriptFinder : EditorWindow
 				where d != asset.asset
 				select new AssetReference (d)
 				).ToArray ();
-			allAssets.Add (asset);
+			foundAssets.Add (asset);
 		}
+		allAssets = foundAssets.OrderBy<AssetReference, string> (a => a.asset.name).ToList ();
 		
 		EditorUtility.ClearProgressBar ();
 	}
