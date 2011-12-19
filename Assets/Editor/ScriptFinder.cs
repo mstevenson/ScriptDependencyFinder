@@ -115,7 +115,7 @@ public sealed class ScriptFinder : EditorWindow
 	private List<AssetReference> allAssets = new List<AssetReference> ();
 
 	private static bool unusedOnly = false;
-	private static bool showSelected = false;
+	private static bool liveUpdate = false;
 	private Vector2 scrollPos;
 
 	void OnGUI ()
@@ -131,11 +131,11 @@ public sealed class ScriptFinder : EditorWindow
 		{
 			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (35)))
 				Clear ();
-			if (GUILayout.Button ("Show All", EditorStyles.toolbarButton, GUILayout.Width (50)))
-				ShowAll ();
+			if (GUILayout.Button ("Show Scripts", EditorStyles.toolbarButton, GUILayout.Width (70)))
+				ShowScripts ();
 			GUILayout.Space (6);
 			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
-			showSelected = GUILayout.Toggle (showSelected, "Show selected", EditorStyles.toolbarButton, GUILayout.Width (75));
+			liveUpdate = GUILayout.Toggle (liveUpdate, "Live update", EditorStyles.toolbarButton, GUILayout.Width (65));
 			EditorGUILayout.Space ();
 		}
 		GUILayout.EndHorizontal ();
@@ -165,10 +165,10 @@ public sealed class ScriptFinder : EditorWindow
 					if (asset.asset != null) {
 						ListButton (asset, new GUIContent (asset.asset.name, asset.icon), "label");
 						currentLine++;
-						foreach (AssetReference dependency in asset.dependencies) {
-							if (dependency.asset != null)
-								ListButton (dependency, new GUIContent (dependency.asset.name, dependency.icon), referenceStyle);
-						}
+//						foreach (AssetReference dependency in asset.dependencies) {
+//							if (dependency.asset != null)
+//								ListButton (dependency, new GUIContent (dependency.asset.name, dependency.icon), referenceStyle);
+//						}
 					}
 				}
 				GUILayout.EndVertical ();
@@ -231,23 +231,34 @@ public sealed class ScriptFinder : EditorWindow
 	
 	
 	
-	private void ShowAll ()
+	private void ShowScripts ()
 	{
-		LoadAssets ();
+		if (allAssets.Count == 0)
+			CacheAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
 	}
 	
 	
-	private void LoadAssets ()
+	private bool HasExtension (string path, params string[] extensions)
+	{
+		string ext = Path.GetExtension (path);
+		foreach (string e in extensions) {
+			if (ext == e)
+				return true;
+		}
+		return false;
+	}
+	
+	
+	private void CacheAssetDependencies (params string[] assetExtensions)
 	{
 		Clear ();
 		
-		// Grab all asset paths except for folders and items outside of the Assets folder
-		string[] assetPaths = (
-			from p in AssetDatabase.GetAllAssetPaths ()
-			where string.IsNullOrEmpty (Path.GetExtension (p)) == false
-			where p.StartsWith ("assets") == true
-			select p
-			).ToArray ();
+		// Grab asset paths for assets with the given list of extensions
+		string[] assetPaths = AssetDatabase.GetAllAssetPaths ()
+			.Where (p => HasExtension (p, assetExtensions)
+					&& !string.IsNullOrEmpty(Path.GetExtension(p))
+					&& p.StartsWith ("assets"))
+			.ToArray ();
 		
 		bool cancelled = false;
 		
