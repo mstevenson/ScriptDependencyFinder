@@ -35,17 +35,17 @@ public class AssetReference
 /// <remarks>
 /// This tool does not take into account prefabs or components that are instantiated at runtime. Use with caution.
 /// </remarks>
-public sealed class ScriptFinder : EditorWindow
+public sealed class DependencyFinder : EditorWindow
 {
 
 	#region Window Setup
 
-	private static ScriptFinder window;
+	private static DependencyFinder window;
 
 	[MenuItem("Window/Dependencies")]
 	static void Init ()
 	{
-		ScriptFinder window = (ScriptFinder)EditorWindow.GetWindow (typeof(ScriptFinder), false, "Dependencies");
+		DependencyFinder window = (DependencyFinder)EditorWindow.GetWindow (typeof(DependencyFinder), false, "Dependencies");
 	}
 
 	#endregion
