@@ -221,7 +221,7 @@ public sealed class DependencyFinder : EditorWindow
 	void OnGUI ()
 	{
 		ToolbarGUI ();
-		ScriptListGUI ();
+		AssetListGUI ();
 	}
 
 
@@ -243,7 +243,7 @@ public sealed class DependencyFinder : EditorWindow
 	}
 
 
-	private void ScriptListGUI ()
+	private void AssetListGUI ()
 	{
 		scrollPos = GUILayout.BeginScrollView (scrollPos);
 		{
