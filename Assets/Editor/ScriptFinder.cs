@@ -166,7 +166,8 @@ public sealed class ScriptFinder : EditorWindow
 						ListButton (asset, new GUIContent (asset.asset.name, asset.icon), "label");
 						currentLine++;
 						foreach (AssetReference dependency in asset.dependencies) {
-							ListButton (dependency, new GUIContent (dependency.asset.name, dependency.icon), referenceStyle);
+							if (dependency.asset != null)
+								ListButton (dependency, new GUIContent (dependency.asset.name, dependency.icon), referenceStyle);
 						}
 					}
 				}
@@ -232,6 +233,12 @@ public sealed class ScriptFinder : EditorWindow
 	
 	private void ShowAll ()
 	{
+		LoadAssets ();
+	}
+	
+	
+	private void LoadAssets ()
+	{
 		Clear ();
 		
 		// Grab all asset paths except for folders and items outside of the Assets folder
@@ -242,15 +249,29 @@ public sealed class ScriptFinder : EditorWindow
 			select p
 			).ToArray ();
 		
-		foreach (string path in assetPaths) {
-			AssetReference asset = new AssetReference (path);
+		bool cancelled = false;
+		
+		for (int i = 0; i < assetPaths.Length; i++) {
+			cancelled = EditorUtility.DisplayCancelableProgressBar (
+				"Finding dependencies",
+				"Finding dependencies for: " + Path.GetFileName(assetPaths[i]),
+				i / (float)assetPaths.Length);
+			if (cancelled) {
+				EditorUtility.ClearProgressBar ();
+				Clear ();
+				return;
+			}
+			
+			AssetReference asset = new AssetReference (assetPaths[i]);
 			asset.dependencies = (
 				from d in EditorUtility.CollectDependencies (new[] { asset.asset })
 				where d != asset.asset
 				select new AssetReference (d)
-				).ToArray();
+				).ToArray ();
 			allAssets.Add (asset);
 		}
+		
+		EditorUtility.ClearProgressBar ();
 	}
 
 	#endregion
