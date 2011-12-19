@@ -11,7 +11,7 @@ public class AssetReference
 	public Object asset;
 	public string path;
 
-	public AssetReference[] dependencies;
+	public List<AssetReference> dependencies = new List<AssetReference> ();
 
 	public AssetReference (Object asset)
 	{
@@ -83,32 +83,136 @@ public sealed class ScriptFinder : EditorWindow
 				}
 			}
 		}
-		scripts.Sort ();
 		return scripts;
 	}
-
-
-	#region GUI
-
-	private List<AssetReference> allAssets = new List<AssetReference> ();
-
+	
+	
+	private List<AssetReference> listedAssets = new List<AssetReference> ();
+	
+	
 	private static bool unusedOnly = false;
 	private static bool liveUpdate = false;
 	private Vector2 scrollPos;
 
+
+	private void ClearList ()
+	{
+		listedAssets.Clear ();
+	}
+		
+	
+	private void ShowScripts ()
+	{
+		ClearList ();
+		List<MonoScript> scripts = FindAllMonoBehaviourScriptsInProject ();
+		List<AssetReference> scriptRefs = scripts.Select<MonoScript, AssetReference> (s => new AssetReference (s)).ToList ();
+		List<AssetReference> allAssets = FindAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
+		listedAssets = FindReverseDependencies (scriptRefs, allAssets);
+	}
+	
+	
+	
+	/// <summary>
+	/// Searches all assets for a dependency matching the target asset. 
+	/// </summary>
+	/// <param name="targetAsset">
+	/// The asset that is depended upon.
+	/// </param>
+	/// <param name="allAssets">
+	/// The pool of assets in which to search for targetAsset dependencies.
+	/// </param>
+	/// <returns>
+	/// Returns list of target asset references which includes a list of other assets that depend upon them.
+	/// </returns>
+	private List<AssetReference> FindReverseDependencies (List<AssetReference> targetAsset, List<AssetReference> allAssets)
+	{
+		List<AssetReference> scriptRefs = new List<AssetReference> ();
+		foreach (var currentScript in targetAsset) {
+			scriptRefs.Add (currentScript);
+			foreach (var asset in allAssets) {
+				foreach (var dependency in asset.dependencies) {
+					if (currentScript.path == dependency.path) {
+						currentScript.dependencies.Add (asset);
+					}
+				}
+			}
+			currentScript.dependencies = (
+				from a in currentScript.dependencies
+				orderby Path.GetExtension (a.path)
+				select a
+				).ToList ();
+		}
+		return scriptRefs;
+	}
+	
+	
+	private List<AssetReference> FindAssetDependencies (params string[] assetExtensions)
+	{
+		// Grab asset paths for assets with the given list of extensions
+		string[] assetPaths = AssetDatabase.GetAllAssetPaths ()
+			.Where (p => HasExtension (p, assetExtensions)
+					&& !string.IsNullOrEmpty (Path.GetExtension (p))
+					&& p.StartsWith ("assets"))
+			.ToArray ();
+		
+		bool cancelled = false;
+		List<AssetReference> foundAssets = new List<AssetReference> ();
+		
+		for (int i = 0; i < assetPaths.Length; i++) {
+			// Progress Bar
+			cancelled = EditorUtility.DisplayCancelableProgressBar (
+				"Finding dependencies",
+				"Finding dependencies for: " + Path.GetFileName (assetPaths[i]),
+				i / (float)assetPaths.Length);
+			if (cancelled) {
+				EditorUtility.ClearProgressBar ();
+				ClearList ();
+				return new List<AssetReference> ();
+			}
+			
+			// Construct dependencies
+			AssetReference asset = new AssetReference (assetPaths[i]);
+			asset.dependencies = (
+				from d in EditorUtility.CollectDependencies (new[] { asset.asset })
+				where d != asset.asset
+				select new AssetReference (d)
+				).ToList ();
+			foundAssets.Add (asset);
+		}
+		EditorUtility.ClearProgressBar ();
+		return (from a in foundAssets
+				orderby a.asset.name
+				select a).ToList ();
+	}
+
+	
+	private bool HasExtension (string path, params string[] extensions)
+	{
+		string ext = Path.GetExtension (path);
+		foreach (string e in extensions) {
+			if (ext == e)
+				return true;
+		}
+		return false;
+	}
+	
+	
+	
+	#region GUI
+	
 	void OnGUI ()
 	{
 		ToolbarGUI ();
 		ScriptListGUI ();
 	}
-	
-	
+
+
 	private void ToolbarGUI ()
 	{
 		GUILayout.BeginHorizontal ("Toolbar");
 		{
 			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (35)))
-				Clear ();
+				ClearList ();
 			if (GUILayout.Button ("Show Scripts", EditorStyles.toolbarButton, GUILayout.Width (70)))
 				ShowScripts ();
 			GUILayout.Space (6);
@@ -118,15 +222,15 @@ public sealed class ScriptFinder : EditorWindow
 		}
 		GUILayout.EndHorizontal ();
 	}
-	
-	
+
+
 	private void ScriptListGUI ()
 	{
 		scrollPos = GUILayout.BeginScrollView (scrollPos);
 		{
 			int currentLine = 0;
-			for (int i = 0; i < allAssets.Count; i++) {
-				AssetReference asset = allAssets[i];
+			for (int i = 0; i < listedAssets.Count; i++) {
+				AssetReference asset = listedAssets[i];
 				
 				GUIStyle referenceStyle = new GUIStyle ("label");
 				referenceStyle.margin.left = 22;
@@ -135,7 +239,7 @@ public sealed class ScriptFinder : EditorWindow
 				rowStyle.margin = new RectOffset (0, 0, 0, 0);
 				rowStyle.padding = new RectOffset (0, 0, 0, 0);
 				
-				if (unusedOnly && asset.dependencies.Length > 0)
+				if (unusedOnly && asset.dependencies.Count > 0)
 					continue;
 				
 				GUILayout.BeginVertical (rowStyle);
@@ -154,8 +258,8 @@ public sealed class ScriptFinder : EditorWindow
 		}
 		GUILayout.EndScrollView ();
 	}
-	
-	
+
+
 
 	/// <summary>
 	/// Generic button UI element for items which can be selected, clicked, and double clicked
@@ -179,14 +283,14 @@ public sealed class ScriptFinder : EditorWindow
 							EditorApplication.OpenScene (asset.path);
 							GUIUtility.ExitGUI ();
 						}
-					// Open prefab
+						// Open prefab
 					} else if (extension == ".prefab") {
 						if (EditorApplication.SaveCurrentSceneIfUserWantsTo ()) {
 							EditorApplication.NewScene ();
 							GameObject.Instantiate (asset.asset);
 							GUIUtility.ExitGUI ();
 						}
-					// Open script
+						// Open script
 					} else {
 						AssetDatabase.OpenAsset (asset.asset);
 					}
@@ -200,76 +304,11 @@ public sealed class ScriptFinder : EditorWindow
 			style.Draw (position, content, false, false, false, false);
 		}
 	}
-
-
-	private void Clear ()
-	{
-		allAssets.Clear ();
-	}
 	
 	
-	
-	private void ShowScripts ()
-	{
-		if (allAssets.Count == 0)
-			CacheAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
-	}
-	
-	
-	private bool HasExtension (string path, params string[] extensions)
-	{
-		string ext = Path.GetExtension (path);
-		foreach (string e in extensions) {
-			if (ext == e)
-				return true;
-		}
-		return false;
-	}
-	
-	
-	private void CacheAssetDependencies (params string[] assetExtensions)
-	{
-		Clear ();
-		
-		// Grab asset paths for assets with the given list of extensions
-		string[] assetPaths = AssetDatabase.GetAllAssetPaths ()
-			.Where (p => HasExtension (p, assetExtensions)
-					&& !string.IsNullOrEmpty (Path.GetExtension (p))
-					&& p.StartsWith ("assets"))
-			.ToArray ();
-		
-		bool cancelled = false;
-		
-		List<AssetReference> foundAssets = new List<AssetReference> ();
-		
-		for (int i = 0; i < assetPaths.Length; i++) {
-			cancelled = EditorUtility.DisplayCancelableProgressBar (
-				"Finding dependencies",
-				"Finding dependencies for: " + Path.GetFileName (assetPaths[i]),
-				i / (float)assetPaths.Length);
-			if (cancelled) {
-				EditorUtility.ClearProgressBar ();
-				Clear ();
-				return;
-			}
-			
-			AssetReference asset = new AssetReference (assetPaths[i]);
-			asset.dependencies = (
-				from d in EditorUtility.CollectDependencies (new[] { asset.asset })
-				where d != asset.asset
-				select new AssetReference (d)
-				).ToArray ();
-			foundAssets.Add (asset);
-		}
-		allAssets = foundAssets.OrderBy<AssetReference, string> (a => a.asset.name).ToList ();
-		
-		EditorUtility.ClearProgressBar ();
-	}
-
-	#endregion
-
-
 //	public static bool UsingProSkin {
 //		get { return GUI.skin.name == "SceneGUISkin"; }
 //	}
+
+	#endregion
 }
