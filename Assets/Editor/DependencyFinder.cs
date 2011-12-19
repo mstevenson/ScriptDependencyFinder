@@ -109,7 +109,7 @@ public sealed class DependencyFinder : EditorWindow
 		if (allAssets.Count == 0) {
 			return;
 		}
-		listedAssets = FindReverseDependencies (scriptRefs, allAssets);
+		listedAssets = CollectReverseDependencies (scriptRefs, allAssets);
 	}
 	
 	private void ShowSelected ()
@@ -121,7 +121,7 @@ public sealed class DependencyFinder : EditorWindow
 		if (allAssets.Count == 0) {
 			return;
 		}
-		listedAssets = FindReverseDependencies (selected, allAssets);
+		listedAssets = CollectReverseDependencies (selected, allAssets);
 	}
 	
 	
@@ -138,7 +138,7 @@ public sealed class DependencyFinder : EditorWindow
 	/// <returns>
 	/// Returns list of target asset references which includes a list of other assets that depend upon them.
 	/// </returns>
-	private List<AssetReference> FindReverseDependencies (List<AssetReference> targetAsset, List<AssetReference> allAssets)
+	private List<AssetReference> CollectReverseDependencies (List<AssetReference> targetAsset, List<AssetReference> allAssets)
 	{
 		List<AssetReference> scriptRefs = new List<AssetReference> ();
 		foreach (var currentScript in targetAsset) {
@@ -178,14 +178,16 @@ public sealed class DependencyFinder : EditorWindow
 		List<AssetReference> foundAssets = new List<AssetReference> ();
 		
 		for (int i = 0; i < assetPaths.Length; i++) {
-			// Progress Bar
-			cancelled = EditorUtility.DisplayCancelableProgressBar (
-				"Finding dependencies",
-				"Finding dependencies for: " + Path.GetFileName (assetPaths[i]),
-				i / (float)assetPaths.Length);
-			if (cancelled) {
-				EditorUtility.ClearProgressBar ();
-				return new List<AssetReference> ();
+			// Display progress bar when there are many dependencies to collect
+			if (assetPaths.Length > 400) {
+				// Progress bar is slow to calculate, so only update it occasionally
+				if (i % 50 == 0) {
+					cancelled = EditorUtility.DisplayCancelableProgressBar ("Collecting Dependencies", "Scanning for asset dependencies", i / (float)assetPaths.Length);
+					if (cancelled) {
+						EditorUtility.ClearProgressBar ();
+						return new List<AssetReference> ();
+					}
+				}
 			}
 			
 			// Construct dependencies
