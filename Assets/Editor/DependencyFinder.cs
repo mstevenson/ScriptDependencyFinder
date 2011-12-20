@@ -37,7 +37,58 @@ public class AssetReference
 /// </remarks>
 public sealed class DependencyFinder : EditorWindow
 {
+	
+	private static List<AssetReference> listedAssets = new List<AssetReference> ();
 
+	private static bool unusedOnly = false;
+	private Vector2 scrollPos;
+	
+	
+	#region Menus
+	
+	[MenuItem("Assets/Reverse Dependencies/Scripts")]
+	public static void FindScriptDependents ()
+	{
+		List<MonoScript> scripts = FindAllMonoBehaviourScriptsInProject ();
+		List<AssetReference> scriptRefs = scripts.Select<MonoScript, AssetReference> (s => new AssetReference (s)).ToList ();
+		List<AssetReference> allAssets = FindAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
+		if (allAssets.Count == 0) {
+			return;
+		}
+		listedAssets = CollectReverseDependencies (scriptRefs, allAssets);
+		if (window == null)
+			Init ();
+		else
+			window.Repaint ();
+	}
+	
+	[MenuItem("Assets/Reverse Dependencies/Prefabs")]
+	public static void FindPrefabDependents ()
+	{
+		
+	}
+	
+	[MenuItem("Assets/Reverse Dependencies/Textures")]
+	public static void FindTextureDependents ()
+	{
+		
+	}
+	
+	[MenuItem("Assets/Reverse Dependencies/Materials")]
+	public static void FindMaterialDependents ()
+	{
+		
+	}
+	
+	[MenuItem("Assets/Reverse Dependencies/GUI Skins")]
+	public static void FindGUISkinDependents ()
+	{
+		
+	}
+	
+	#endregion
+	
+	
 	#region Window Setup
 
 	private static DependencyFinder window;
@@ -45,7 +96,7 @@ public sealed class DependencyFinder : EditorWindow
 	[MenuItem("Window/Dependencies")]
 	static void Init ()
 	{
-		DependencyFinder window = (DependencyFinder)EditorWindow.GetWindow (typeof(DependencyFinder), false, "Dependencies");
+		window = (DependencyFinder)EditorWindow.GetWindow (typeof(DependencyFinder), false, "Dependencies");
 	}
 
 	#endregion
@@ -85,31 +136,11 @@ public sealed class DependencyFinder : EditorWindow
 		}
 		return scripts;
 	}
-	
-	
-	private List<AssetReference> listedAssets = new List<AssetReference> ();
-	
-	
-	private static bool unusedOnly = false;
-	private Vector2 scrollPos;
 
 
-	private void ClearList ()
+	private static void ClearList ()
 	{
 		listedAssets.Clear ();
-	}
-		
-	
-	private void ShowScripts ()
-	{
-		ClearList ();
-		List<MonoScript> scripts = FindAllMonoBehaviourScriptsInProject ();
-		List<AssetReference> scriptRefs = scripts.Select<MonoScript, AssetReference> (s => new AssetReference (s)).ToList ();
-		List<AssetReference> allAssets = FindAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
-		if (allAssets.Count == 0) {
-			return;
-		}
-		listedAssets = CollectReverseDependencies (scriptRefs, allAssets);
 	}
 	
 	private void ShowSelected ()
@@ -138,7 +169,7 @@ public sealed class DependencyFinder : EditorWindow
 	/// <returns>
 	/// Returns list of target asset references which includes a list of other assets that depend upon them.
 	/// </returns>
-	private List<AssetReference> CollectReverseDependencies (List<AssetReference> targetAsset, List<AssetReference> allAssets)
+	private static List<AssetReference> CollectReverseDependencies (List<AssetReference> targetAsset, List<AssetReference> allAssets)
 	{
 		List<AssetReference> scriptRefs = new List<AssetReference> ();
 		foreach (var currentScript in targetAsset) {
@@ -160,7 +191,7 @@ public sealed class DependencyFinder : EditorWindow
 	}
 	
 	
-	private List<AssetReference> FindAssetDependencies (params string[] assetExtensions)
+	private static List<AssetReference> FindAssetDependencies (params string[] assetExtensions)
 	{
 		string[] assetPaths;
 		if (assetExtensions.Length == 0) {
@@ -169,7 +200,7 @@ public sealed class DependencyFinder : EditorWindow
 		else {
 			// Grab asset paths for assets with the given list of extensions
 			assetPaths = AssetDatabase.GetAllAssetPaths ()
-				.Where (p => HasExtension (p, assetExtensions)
+				.Where (p => PathIncludesExtension (p, assetExtensions)
 						&& !string.IsNullOrEmpty (Path.GetExtension (p))
 						&& p.StartsWith ("assets"))
 				.ToArray ();
@@ -206,7 +237,7 @@ public sealed class DependencyFinder : EditorWindow
 	}
 
 	
-	private bool HasExtension (string path, params string[] extensions)
+	private static bool PathIncludesExtension (string path, params string[] extensions)
 	{
 		string ext = Path.GetExtension (path);
 		foreach (string e in extensions) {
@@ -233,8 +264,12 @@ public sealed class DependencyFinder : EditorWindow
 		{
 			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (35)))
 				ClearList ();
-			if (GUILayout.Button ("Show Scripts", EditorStyles.toolbarButton, GUILayout.Width (70)))
-				ShowScripts ();
+			
+//			if (GUILayout.Button ("Show Scripts", EditorStyles.toolbarButton, GUILayout.Width (70)))
+			//				ShowScripts ();
+			
+			ShowAssetTypePopup (GUILayout.Width (45));
+			
 			if (GUILayout.Button ("Show Selected", EditorStyles.toolbarButton, GUILayout.Width (75)))
 				ShowSelected ();
 			GUILayout.Space (6);
@@ -321,9 +356,22 @@ public sealed class DependencyFinder : EditorWindow
 		// Draw line element
 		if (Event.current.type == EventType.Repaint) {
 			// FIXME optimized by caching a reference to these GUIStyles
-//			GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
+	//			GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
 			style.Draw (position, content, false, false, false, false);
 		}
+	}
+	
+	
+	private void ShowAssetTypePopup (params GUILayoutOption[] options)
+	{
+		GUIContent content = new GUIContent ("Show");
+		Rect rect = GUILayoutUtility.GetRect (content, EditorStyles.toolbarDropDown, options);
+		GUI.Label (rect, content, EditorStyles.toolbarDropDown);
+		if (Event.current.type != EventType.MouseDown || !rect.Contains (Event.current.mousePosition))
+			return;
+		GUIUtility.hotControl = 0;
+		EditorUtility.DisplayPopupMenu (rect, "Assets/Reverse Dependencies", null);
+		Event.current.Use ();
 	}
 	
 	
