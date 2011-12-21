@@ -43,6 +43,38 @@ public sealed class DependencyFinder : EditorWindow
 	private static bool unusedOnly = false;
 	private Vector2 scrollPos;
 	
+	private static GUIStyle referenceStyle;
+	private static GUIStyle evenStyle;
+	private static GUIStyle oddStyle;
+	
+	
+	#region Window Setup
+
+	private static DependencyFinder window;
+
+	[MenuItem("Window/Dependencies")]
+	static void Init ()
+	{
+		window = (DependencyFinder)EditorWindow.GetWindow (typeof(DependencyFinder), false, "Dependencies");
+	}
+	
+	
+	private static void UpdateStyles ()
+	{
+		referenceStyle = new GUIStyle ("label");
+		referenceStyle.margin.left = 22;
+		
+		evenStyle = new GUIStyle ("CN EntryBackEven");
+		evenStyle.margin = new RectOffset (0, 0, 0, 0);
+		evenStyle.padding = new RectOffset (0, 0, 0, 0);
+		
+		oddStyle = new GUIStyle ("CN EntryBackOdd");
+		oddStyle.margin = new RectOffset (0, 0, 0, 0);
+		oddStyle.padding = new RectOffset (0, 0, 0, 0);
+	}
+
+	#endregion
+	
 	
 	#region Menus
 	
@@ -87,19 +119,7 @@ public sealed class DependencyFinder : EditorWindow
 	}
 	
 	#endregion
-	
-	
-	#region Window Setup
 
-	private static DependencyFinder window;
-
-	[MenuItem("Window/Dependencies")]
-	static void Init ()
-	{
-		window = (DependencyFinder)EditorWindow.GetWindow (typeof(DependencyFinder), false, "Dependencies");
-	}
-
-	#endregion
 
 
 	/// <summary>
@@ -253,6 +273,8 @@ public sealed class DependencyFinder : EditorWindow
 	
 	void OnGUI ()
 	{
+		UpdateStyles ();
+		
 		ToolbarGUI ();
 		AssetListGUI ();
 	}
@@ -265,10 +287,7 @@ public sealed class DependencyFinder : EditorWindow
 			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (35)))
 				ClearList ();
 			
-//			if (GUILayout.Button ("Show Scripts", EditorStyles.toolbarButton, GUILayout.Width (70)))
-			//				ShowScripts ();
-			
-			ShowAssetTypePopup (GUILayout.Width (45));
+			ShowAssetTypePopup ();
 			
 			if (GUILayout.Button ("Show Selected", EditorStyles.toolbarButton, GUILayout.Width (75)))
 				ShowSelected ();
@@ -288,17 +307,10 @@ public sealed class DependencyFinder : EditorWindow
 			for (int i = 0; i < listedAssets.Count; i++) {
 				AssetReference asset = listedAssets[i];
 				
-				GUIStyle referenceStyle = new GUIStyle ("label");
-				referenceStyle.margin.left = 22;
-				
-				GUIStyle rowStyle = currentLine % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
-				rowStyle.margin = new RectOffset (0, 0, 0, 0);
-				rowStyle.padding = new RectOffset (0, 0, 0, 0);
-				
 				if (unusedOnly && asset.dependencies.Count > 0)
 					continue;
 				
-				GUILayout.BeginVertical (rowStyle);
+				GUILayout.BeginVertical (currentLine % 2 != 0 ? evenStyle : oddStyle);
 				{
 					if (asset.asset != null) {
 						ListButton (asset, new GUIContent (asset.asset.name, AssetDatabase.GetCachedIcon (asset.path)), "label");
@@ -355,17 +367,15 @@ public sealed class DependencyFinder : EditorWindow
 		}
 		// Draw line element
 		if (Event.current.type == EventType.Repaint) {
-			// FIXME optimized by caching a reference to these GUIStyles
-	//			GUIStyle style = item.row % 2 != 0 ? new GUIStyle ("CN EntryBackEven") : new GUIStyle ("CN EntryBackOdd");
 			style.Draw (position, content, false, false, false, false);
 		}
 	}
 	
 	
-	private void ShowAssetTypePopup (params GUILayoutOption[] options)
+	private void ShowAssetTypePopup ()
 	{
 		GUIContent content = new GUIContent ("Show");
-		Rect rect = GUILayoutUtility.GetRect (content, EditorStyles.toolbarDropDown, options);
+		Rect rect = GUILayoutUtility.GetRect (content, EditorStyles.toolbarDropDown, GUILayout.Width (45));
 		GUI.Label (rect, content, EditorStyles.toolbarDropDown);
 		if (Event.current.type != EventType.MouseDown || !rect.Contains (Event.current.mousePosition))
 			return;
@@ -380,4 +390,5 @@ public sealed class DependencyFinder : EditorWindow
 //	}
 
 	#endregion
+
 }
