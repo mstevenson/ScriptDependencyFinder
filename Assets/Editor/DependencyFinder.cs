@@ -230,7 +230,7 @@ public sealed class DependencyFinder : EditorWindow
 		
 		for (int i = 0; i < assetPaths.Length; i++) {
 			// Display progress bar when there are many dependencies to collect
-			if (assetPaths.Length > 400) {
+			if (assetPaths.Length > 150) {
 				// Progress bar is slow to calculate, so only update it occasionally
 				if (i % 50 == 0) {
 					cancelled = EditorUtility.DisplayCancelableProgressBar ("Collecting Dependencies", "Scanning for asset dependencies", i / (float)assetPaths.Length);
