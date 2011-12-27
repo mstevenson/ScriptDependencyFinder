@@ -7,10 +7,3 @@
 
 /Temp
 /Library
-
-!/Library/BuildSettings.asset
-!/Library/InputManager.asset
-!/Library/NetworkManager.asset
-!/Library/ProjectSettings.asset
-!/Library/QualitySettings.asset
-!/Library/TagManager.asset
