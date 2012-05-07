@@ -5,12 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-
 public class AssetReference
 {
 	public Object asset;
 	public string path;
-
 	public List<AssetReference> dependencies = new List<AssetReference> ();
 
 	public AssetReference (Object asset)
@@ -53,11 +51,9 @@ public sealed class DependencyFinder : EditorWindow
 	// FIXME inherit from SearchableEditorWindow
 	
 	private static AssetReference[] listedAssets;
-
 	private static bool unusedOnly = false;
 	private static bool showSelected = false;
 	private Vector2 scrollPos;
-	
 	private static GUIStyle referenceStyle;
 	private static GUIStyle evenStyle;
 	private static GUIStyle oddStyle;
@@ -72,7 +68,6 @@ public sealed class DependencyFinder : EditorWindow
 	{
 		window = (DependencyFinder)EditorWindow.GetWindow (typeof(DependencyFinder), false, "Dependencies");
 	}
-	
 	
 	private static void UpdateStyles ()
 	{
@@ -167,7 +162,6 @@ public sealed class DependencyFinder : EditorWindow
 		}
 		return scripts.ToArray ();
 	}
-	
 
 	private static void ClearList ()
 	{
@@ -218,13 +212,12 @@ public sealed class DependencyFinder : EditorWindow
 				select a
 				).ToList ();
 		}
-		return scriptRefs.ToArray ();
+		return scriptRefs.OrderBy (a => Path.GetFileName (a.path)).ToArray ();
 	}
-	
 	
 	private static AssetReference[] FindAssetDependencies (params string[] assetExtensions)
 	{
-		string[] assetPaths = FindAssetsByExtension (assetExtensions);;
+		string[] assetPaths = FindAssetsByExtension (assetExtensions);
 		bool cancelled = false;
 		List<AssetReference> foundAssets = new List<AssetReference> ();
 		for (int i = 0; i < assetPaths.Length; i++) {
@@ -304,7 +297,6 @@ public sealed class DependencyFinder : EditorWindow
 		AssetListGUI ();
 	}
 
-
 	private void ToolbarGUI ()
 	{
 		GUILayout.BeginHorizontal ("Toolbar");
@@ -323,7 +315,6 @@ public sealed class DependencyFinder : EditorWindow
 		}
 		GUILayout.EndHorizontal ();
 	}
-
 
 	private void AssetListGUI ()
 	{
@@ -398,7 +389,6 @@ public sealed class DependencyFinder : EditorWindow
 			style.Draw (position, content, false, false, false, false);
 		}
 	}
-	
 	
 	private void ShowAssetTypePopup ()
 	{
