@@ -52,6 +52,7 @@ public sealed class DependencyFinder : EditorWindow
 	
 	private static AssetReference[] listedAssets;
 	private static bool unusedOnly = false;
+	private static bool ignoreStandardAssets = true;
 	private static bool showSelected = false;
 	private Vector2 scrollPos;
 	private static GUIStyle referenceStyle;
@@ -311,6 +312,7 @@ public sealed class DependencyFinder : EditorWindow
 //				ShowSelected ();
 			showSelected = GUILayout.Toggle (showSelected, "Show Selected", EditorStyles.toolbarButton, GUILayout.Width (75));
 			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
+			ignoreStandardAssets = GUILayout.Toggle (ignoreStandardAssets, "No Standard Assets", EditorStyles.toolbarButton, GUILayout.Width (100));
 			EditorGUILayout.Space ();
 		}
 		GUILayout.EndHorizontal ();
@@ -327,8 +329,10 @@ public sealed class DependencyFinder : EditorWindow
 				
 					if (unusedOnly && asset.dependencies.Count > 0)
 						continue;
+					if (ignoreStandardAssets && asset.path.StartsWith ("Assets/Standard Assets/"))
+						continue;
 				
-					GUILayout.BeginVertical (currentLine % 2 != 0 ? evenStyle : oddStyle);
+						GUILayout.BeginVertical (currentLine % 2 != 0 ? evenStyle : oddStyle);
 					{
 						if (asset.asset != null) {
 							ListButton (asset, new GUIContent (asset.asset.name, AssetDatabase.GetCachedIcon (asset.path)), "label");
