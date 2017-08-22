@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UnityEditor.SceneManagement;
 
 public class AssetReference
 {
@@ -95,7 +96,8 @@ public sealed class DependencyFinder : EditorWindow
 		MonoScript[] scripts = FindAllMonoBehaviourScriptsInProject ();
 		AssetReference[] scriptRefs = AssetReference.ReferencesFromAssets<MonoScript> (scripts);
 		AssetReference[] allAssets = FindAssetDependencies (".unity", ".prefab", ".asset", ".cs", ".js", ".boo");
-		if (allAssets.Length == 0) {
+		Debug.Log (allAssets.Length);
+		if (allAssets == null || allAssets.Length == 0) {
 			return;
 		}
 		listedAssets = CollectReverseDependencies (scriptRefs, allAssets);
@@ -116,13 +118,13 @@ public sealed class DependencyFinder : EditorWindow
 	[MenuItem("Assets/Reverse Dependencies/Textures")]
 	public static void FindTextureDependents ()
 	{
-		
+		Debug.LogError ("FindTextureDependents not implemented");
 	}
 	
 	[MenuItem("Assets/Reverse Dependencies/Materials")]
 	public static void FindMaterialDependents ()
 	{
-		
+		Debug.LogError ("FindMaterialDependents not implemented");
 	}
 	
 	#endregion
@@ -150,7 +152,7 @@ public sealed class DependencyFinder : EditorWindow
 	private static MonoScript[] FindAllMonoBehaviourScriptsInProject ()
 	{
 		List<MonoScript> scripts = new List<MonoScript> ();
-		foreach (var obj in FindObjectsOfTypeIncludingAssets (typeof(MonoScript))) {
+		foreach (var obj in Resources.FindObjectsOfTypeAll<MonoScript> ()) {
 			if (obj as MonoScript) {
 				MonoScript script = (MonoScript)obj;
 				System.Type type = script.GetClass ();
@@ -197,23 +199,47 @@ public sealed class DependencyFinder : EditorWindow
 	/// </returns>
 	private static AssetReference[] CollectReverseDependencies (AssetReference[] targetAsset, AssetReference[] allAssets)
 	{
+		bool cancelled = false;
 		List<AssetReference> scriptRefs = new List<AssetReference> ();
-		foreach (var currentScript in targetAsset) {
-			scriptRefs.Add (currentScript);
-			foreach (var asset in allAssets) {
-				foreach (var dependency in asset.dependencies) {
-					if (currentScript.path == dependency.path) {
-						currentScript.dependencies.Add (asset);
+		for (int t = 0; t < targetAsset.Length; t++) {
+			
+			// Display progress bar when there are many dependencies to collect
+			// Progress bar is slow to calculate, so only update it occasionally
+			if (t % 5 == 0) {
+				cancelled = EditorUtility.DisplayCancelableProgressBar ("Collecting Dependencies", "Cross referencing assets", t / (float)targetAsset.Length);
+				if (cancelled) {
+					EditorUtility.ClearProgressBar ();
+					return null;
+				}
+			}
+
+			scriptRefs.Add (targetAsset [t]);
+			for (int a = 0; a < allAssets.Length; a++) {
+				var asset = allAssets [a];
+				for (int d = 0; d < asset.dependencies.Count; d++) {
+					if (targetAsset [t].path == asset.dependencies [d].path) {
+						targetAsset [t].dependencies.Add (asset);
 					}
 				}
 			}
-			currentScript.dependencies = (
-				from a in currentScript.dependencies
-				orderby Path.GetExtension (a.path)
-				select a
-				).ToList ();
+			targetAsset [t].dependencies = targetAsset [t].dependencies
+				.OrderBy (a => Path.GetExtension (a.path))
+				.ToList ();
 		}
-		return scriptRefs.OrderBy (a => Path.GetFileName (a.path)).ToArray ();
+
+		EditorUtility.ClearProgressBar ();
+
+		var result = scriptRefs.OrderBy (a => Path.GetFileName (a.path)).ToArray ();
+
+		// Write unused assets to disk
+		var unused = result.Where (a => a.dependencies.Count == 0).OrderBy (a => a.path);
+		var sb = new System.Text.StringBuilder ();
+		foreach (var asset in unused) {
+			sb.AppendLine (asset.path);
+		}
+		System.IO.File.WriteAllText ("UnusedScripts.txt", sb.ToString ());
+
+		return result;
 	}
 	
 	private static AssetReference[] FindAssetDependencies (params string[] assetExtensions)
@@ -244,9 +270,11 @@ public sealed class DependencyFinder : EditorWindow
 			foundAssets.Add (asset);
 		}
 		EditorUtility.ClearProgressBar ();
-		return (from a in foundAssets
-				orderby a.asset.name
-				select a).ToArray ();
+		Debug.Log (foundAssets.Count);
+		return foundAssets
+			.Where (a => a != null && a.asset != null)
+			.OrderBy (a => a.asset.name)
+			.ToArray ();
 	}
 	
 	
@@ -302,17 +330,17 @@ public sealed class DependencyFinder : EditorWindow
 	{
 		GUILayout.BeginHorizontal ("Toolbar");
 		{
-			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (35)))
+			if (GUILayout.Button ("Clear", EditorStyles.toolbarButton, GUILayout.Width (40)))
 				ClearList ();
 			
 			ShowAssetTypePopup ();
 			
-			GUILayout.Space (6);
+			GUILayout.Space (12);
 //			if (GUILayout.Button ("Show Selected", EditorStyles.toolbarButton, GUILayout.Width (75)))
 //				ShowSelected ();
-			showSelected = GUILayout.Toggle (showSelected, "Show Selected", EditorStyles.toolbarButton, GUILayout.Width (75));
-			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (70));
-			ignoreStandardAssets = GUILayout.Toggle (ignoreStandardAssets, "No Standard Assets", EditorStyles.toolbarButton, GUILayout.Width (100));
+			showSelected = GUILayout.Toggle (showSelected, "Show Selected", EditorStyles.toolbarButton, GUILayout.Width (90));
+			unusedOnly = GUILayout.Toggle (unusedOnly, "Only unused", EditorStyles.toolbarButton, GUILayout.Width (80));
+			ignoreStandardAssets = GUILayout.Toggle (ignoreStandardAssets, "No Standard Assets", EditorStyles.toolbarButton, GUILayout.Width (115));
 			EditorGUILayout.Space ();
 		}
 		GUILayout.EndHorizontal ();
@@ -370,14 +398,14 @@ public sealed class DependencyFinder : EditorWindow
 					string extension = Path.GetExtension (asset.path);
 					// Open scene
 					if (extension == ".unity") {
-						if (EditorApplication.SaveCurrentSceneIfUserWantsTo ()) {
-							EditorApplication.OpenScene (asset.path);
+						if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo ()) {
+							EditorSceneManager.OpenScene (asset.path);
 							GUIUtility.ExitGUI ();
 						}
 						// Open prefab
 					} else if (extension == ".prefab") {
-						if (EditorApplication.SaveCurrentSceneIfUserWantsTo ()) {
-							EditorApplication.NewScene ();
+						if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo ()) {
+							EditorSceneManager.NewScene (NewSceneSetup.EmptyScene);
 							GameObject.Instantiate (asset.asset);
 							GUIUtility.ExitGUI ();
 						}
