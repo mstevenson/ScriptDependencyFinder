@@ -61,6 +61,8 @@ public sealed class DependencyFinder : EditorWindow
 	static GUIStyle evenStyle;
 	static GUIStyle oddStyle;
 
+	static TreeView tree;
+
 
 	#region Window Setup
 
@@ -91,8 +93,7 @@ public sealed class DependencyFinder : EditorWindow
 	
 	#region Menus
 	
-	[MenuItem("Assets/Reverse Dependencies/Scripts")]
-	public static void FindScriptDependents ()
+	static void FindScriptDependents ()
 	{
 		MonoScript[] scripts = FindAllMonoBehaviourScriptsInProject ();
 		AssetReference[] scriptRefs = AssetReference.ReferencesFromAssets<MonoScript> (scripts);
@@ -108,22 +109,19 @@ public sealed class DependencyFinder : EditorWindow
 			window.Repaint ();
 	}
 	
-	[MenuItem("Assets/Reverse Dependencies/Prefabs")]
-	public static void FindPrefabDependents ()
+	static void FindPrefabDependents ()
 	{
 		AssetReference[] prefabPaths = AssetReference.ReferencesFromPaths (FindAssetsByExtension (".prefab"));
 		AssetReference[] allAssets = FindAssetDependencies ();
 		listedAssets = CollectReverseDependencies (prefabPaths, allAssets);
 	}
 	
-	[MenuItem("Assets/Reverse Dependencies/Textures")]
-	public static void FindTextureDependents ()
+	static void FindTextureDependents ()
 	{
 		Debug.LogError ("FindTextureDependents not implemented");
 	}
 	
-	[MenuItem("Assets/Reverse Dependencies/Materials")]
-	public static void FindMaterialDependents ()
+	static void FindMaterialDependents ()
 	{
 		Debug.LogError ("FindMaterialDependents not implemented");
 	}
